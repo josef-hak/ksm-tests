@@ -36,9 +36,7 @@ flowchart LR
             direction LR
             subgraph D1["Install ServiceTemplates"]
                 direction TB
-                T1["cert-manager-1-20-2"]
-                T2["kserve-crd-0-18-0"]
-                T3["kserve-resources-0-18-0"]
+                T1["cert-manager-1-20-2"] ~~~ T2["kserve-crd-0-18-0"] ~~~ T3["kserve-resources-0-18-0"]
             end
 
             subgraph D2["Deploy MultiClusterService"]
