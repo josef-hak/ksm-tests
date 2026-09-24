@@ -32,40 +32,39 @@ flowchart LR
     P1["1) Build environment"]
 
     subgraph P2["2) Deploy services"]
-        direction TB
-
-        subgraph D1["Install ServiceTemplates"]
+        subgraph W2[" "]
             direction TB
-            T1["cert-manager-1-20-2"]
-            T2["kserve-crd-0-18-0"]
-            T3["kserve-resources-0-18-0"]
-        end
+            subgraph D1["Install ServiceTemplates"]
+                direction TB
+                T1["cert-manager-1-20-2"]
+                T2["kserve-crd-0-18-0"]
+                T3["kserve-resources-0-18-0"]
+            end
 
-        subgraph D2["Deploy MultiClusterService"]
-            direction TB
-            M0["selfManagement: true"]
-            M1["cert-manager"] --> M2["kserve-crd<br/>dependsOn: cert-manager"] --> M3["kserve-resources<br/>dependsOn: kserve-crd"]
-        end
+            subgraph D2["Deploy MultiClusterService"]
+                direction TB
+                M1["cert-manager"] --> M2["kserve-crd<br/>dependsOn: cert-manager"] --> M3["kserve-resources<br/>dependsOn: kserve-crd"]
+            end
 
-        D1 --> D2
+            D1 --> D2
+        end
     end
 
     P3["3) Upgrade services<br/>(skipped)"]
 
     subgraph P4["4) Clean up"]
-        direction TB
         C1["Remove services"] --> C2["Remove k0s cluster"]
     end
 
     P1 --> P2 --> P3 --> P4
 
     classDef off fill:#d7dde5,stroke:#7c8a9c,color:#33415a
-    classDef dep fill:#ede9fe,stroke:#7c3aed,color:#0b1220
-    classDef out fill:#dcfce7,stroke:#16a34a,color:#0b1220
+    classDef pink fill:#fce7f3,stroke:#db2777,color:#0b1220
+    classDef bare fill:none,stroke:none
 
     class P1,P3 off
-    class T1,T2,T3,M0,M1,M2,M3 dep
-    class C1,C2 out
+    class P2,P4,D1,D2,T1,T2,T3,M1,M2,M3,C1,C2 pink
+    class W2 bare
 ```
 
 Grey phases are not part of this scenario: the environment is built once and shared
