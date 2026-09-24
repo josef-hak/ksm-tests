@@ -15,8 +15,23 @@ flowchart LR
     class A,B,C svc
 ```
 
-The scenario asserts that each service reaches the cluster only once the one it
-depends on is deployed, and that all three can then be removed again.
+## What is asserted
+
+| Step | Check |
+|---|---|
+| Install ServiceTemplates | each of the three `ServiceTemplate` objects reports `valid` before anything is deployed |
+| Deploy MultiClusterService | KCM turns the MCS into a `ServiceSet` — a missing one means the selector never matched |
+| | every service has a **deployed helm release** in the target cluster, waited for in the declared order; the namespace existing is not enough, because namespaces outlive the scenario that made them |
+| | pods matching `waitForPods` are ready — `cert-manager-` and `kserve-controller-manager-`; `kserve-crd` ships only CRDs, so it has nothing to wait for |
+| | the MCS reports `ClusterInReadyState`, so KCM has accepted the rollout rather than the test having merely seen the workloads come up |
+| Remove services | the MCS disappears, and no `ServiceSet` of its own survives it |
+| | no helm release is left for any of the three services — a release record can outlive an emptied namespace and break the next scenario |
+| | no Deployment, DaemonSet or StatefulSet is left in `cert-manager` or `kserve` |
+
+What this proves about dependencies is indirect but real: a dependent that KSM
+released too early cannot reach a deployed release while the chart it needs is
+missing, so the per-service wait fails and the scenario goes red. The order itself
+is asserted directly in the unit tests; here it is the end state that has to hold.
 
 > [!NOTE]
 > The copy of cert-manager sets `crds.enabled: false` and a `fullnameOverride`,
