@@ -78,7 +78,7 @@ deploys the services into the cluster it runs in. No second cluster, no
 | `501_no_chain` | with no `ServiceTemplateChain`, any version is reachable |
 | `502_chain_boundary` | a chain offering nothing refuses every upgrade |
 | `503_direct_chain` | only what the chain lists is accepted |
-| `504_stepwise_chain` | a multi-hop chain is walked, not skipped |
+| [`504_stepwise_chain`](test_scenarios/504_stepwise_chain.md) | a multi-hop chain is walked, not skipped |
 
 Each runs against two KCM builds: `src: main` and `release: 1.12.0-rc.3`.
 
