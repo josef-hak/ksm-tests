@@ -63,7 +63,7 @@ flowchart LR
     classDef bare fill:none,stroke:none
 
     class P1,P3 off
-    class P2,P4,D1,D2,T1,T2,T3,M1,M2,M3,C1,C2 pink
+    class D1,D2,T1,T2,T3,M1,M2,M3,C1,C2 pink
     class W2 bare
 ```
 
