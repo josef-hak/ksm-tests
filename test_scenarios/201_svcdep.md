@@ -27,7 +27,7 @@ depends on is deployed, and that all three can then be removed again.
 ## Scenario steps
 
 ```mermaid
-%%{init: {'themeVariables': {'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', 'fontSize': '13px'}, 'flowchart': {'padding': 14, 'nodeSpacing': 30, 'rankSpacing': 45}}}%%
+%%{init: {'themeVariables': {'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', 'fontSize': '13px'}, 'flowchart': {'padding': 10, 'nodeSpacing': 18, 'rankSpacing': 28}}}%%
 flowchart LR
     P1["1) Build environment"]
 
@@ -35,15 +35,13 @@ flowchart LR
         subgraph W2[" "]
             direction TB
             subgraph D1["Install ServiceTemplates"]
-                direction TB
-                T1["cert-manager-1-20-2"]
-                T2["kserve-crd-0-18-0"]
-                T3["kserve-resources-0-18-0"]
+                direction LR
+                T1["cert-manager-1-20-2"] ~~~ T2["kserve-crd-0-18-0"] ~~~ T3["kserve-resources-0-18-0"]
             end
 
             subgraph D2["Deploy MultiClusterService"]
-                direction TB
-                M1["cert-manager"] --> M2["kserve-crd<br/>dependsOn: cert-manager"] --> M3["kserve-resources<br/>dependsOn: kserve-crd"]
+                direction LR
+                M1["cert-manager"] --> M2["kserve-crd"] --> M3["kserve-resources"]
             end
 
             D1 --> D2
@@ -53,6 +51,7 @@ flowchart LR
     P3["3) Upgrade services<br/>(skipped)"]
 
     subgraph P4["4) Clean up"]
+        direction LR
         C1["Remove services"] --> C2["Remove k0s cluster"]
     end
 
@@ -60,10 +59,12 @@ flowchart LR
 
     classDef off fill:#d7dde5,stroke:#7c8a9c,color:#33415a
     classDef pink fill:#fce7f3,stroke:#db2777,color:#0b1220
+    classDef green fill:#dcfce7,stroke:#16a34a,color:#0b1220
     classDef bare fill:none,stroke:none
 
     class P1,P3 off
-    class D1,D2,T1,T2,T3,M1,M2,M3,C1,C2 pink
+    class D1,D2,T1,T2,T3,M1,M2,M3 pink
+    class C1,C2 green
     class W2 bare
 ```
 
