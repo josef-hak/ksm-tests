@@ -10,7 +10,7 @@
 6. The MCS reports `ClusterInReadyState`.
 7. Remove the services: MCS, ServiceSet, helm releases and workloads all gone.
 
-## Scenario steps
+## Scenario schema
 
 ```mermaid
 %%{init: {'flowchart': {'padding': 10, 'nodeSpacing': 18, 'rankSpacing': 28}}}%%
