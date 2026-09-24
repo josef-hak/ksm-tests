@@ -35,12 +35,14 @@ flowchart LR
         subgraph W2[" "]
             direction TB
             subgraph D1["Install ServiceTemplates"]
-                direction LR
-                T1["cert-manager-1-20-2"] ~~~ T2["kserve-crd-0-18-0"] ~~~ T3["kserve-resources-0-18-0"]
+                direction TB
+                T1["cert-manager-1-20-2"]
+                T2["kserve-crd-0-18-0"]
+                T3["kserve-resources-0-18-0"]
             end
 
             subgraph D2["Deploy MultiClusterService"]
-                direction LR
+                direction TB
                 M1["cert-manager"] --> M2["kserve-crd"] --> M3["kserve-resources"]
             end
 
@@ -51,7 +53,6 @@ flowchart LR
     P3["3) Upgrade services<br/>(skipped)"]
 
     subgraph P4["4) Clean up"]
-        direction LR
         C1["Remove services"] --> C2["Remove k0s cluster"]
     end
 
