@@ -33,7 +33,7 @@ flowchart LR
 
     subgraph P2["2) Deploy services"]
         subgraph W2[" "]
-            direction TB
+            direction LR
             subgraph D1["Install ServiceTemplates"]
                 direction TB
                 T1["cert-manager-1-20-2"]
