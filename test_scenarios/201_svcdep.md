@@ -27,13 +27,27 @@ depends on is deployed, and that all three can then be removed again.
 ## Scenario steps
 
 ```mermaid
-%%{init: {'flowchart': {'padding': 16, 'nodeSpacing': 40, 'rankSpacing': 45}}}%%
+%%{init: {'themeVariables': {'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', 'fontSize': '13px'}, 'flowchart': {'padding': 14, 'nodeSpacing': 30, 'rankSpacing': 45}}}%%
 flowchart LR
     P1["1) Build environment"]
 
     subgraph P2["2) Deploy services"]
         direction TB
-        D1["Install ServiceTemplates"] --> D2["Deploy MultiClusterService"]
+
+        subgraph D1["Install ServiceTemplates"]
+            direction TB
+            T1["cert-manager-1-20-2"]
+            T2["kserve-crd-0-18-0"]
+            T3["kserve-resources-0-18-0"]
+        end
+
+        subgraph D2["Deploy MultiClusterService"]
+            direction TB
+            M0["selfManagement: true"]
+            M1["cert-manager"] --> M2["kserve-crd<br/>dependsOn: cert-manager"] --> M3["kserve-resources<br/>dependsOn: kserve-crd"]
+        end
+
+        D1 --> D2
     end
 
     P3["3) Upgrade services<br/>(skipped)"]
@@ -50,36 +64,12 @@ flowchart LR
     classDef out fill:#dcfce7,stroke:#16a34a,color:#0b1220
 
     class P1,P3 off
-    class D1,D2 dep
+    class T1,T2,T3,M0,M1,M2,M3 dep
     class C1,C2 out
 ```
 
 Grey phases are not part of this scenario: the environment is built once and shared
 by every scenario, and this one declares no `upgrade:` block, so nothing is upgraded.
-
-**Install ServiceTemplates** — one per service, named after the chart and version:
-
-- `cert-manager-1-20-2`
-- `kserve-crd-0-18-0`
-- `kserve-resources-0-18-0`
-
-**Deploy MultiClusterService** — one MCS carrying the whole chain:
-
-```yaml
-spec:
-  serviceSpec:
-    provider:
-      selfManagement: true          # deploy into the cluster KCM runs in
-    services:
-      - template: cert-manager-1-20-2
-        name: cert-manager
-      - template: kserve-crd-0-18-0
-        name: kserve-crd
-        dependsOn: [cert-manager]
-      - template: kserve-resources-0-18-0
-        name: kserve-resources
-        dependsOn: [kserve-crd]
-```
 
 ## Run it
 
