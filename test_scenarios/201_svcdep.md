@@ -33,10 +33,12 @@ flowchart LR
 
     subgraph P2["2) Deploy services"]
         direction TB
-        D1["Install ServiceTemplates"] --> D2["Deploy MultiClusterService"]
+        D1["Install ServiceTemplates<br/>• cert-manager-1-20-2<br/>• kserve-crd-0-18-0<br/>• kserve-resources-0-18-0"]
+        D2["Deploy MultiClusterService<br/>selfManagement: true<br/>services:<br/>• cert-manager<br/>• kserve-crd → dependsOn cert-manager<br/>• kserve-resources → dependsOn kserve-crd"]
+        D1 --> D2
     end
 
-    P3["3) Upgrade services"]
+    P3["3) Upgrade services<br/>(skipped)"]
 
     subgraph P4["4) Clean up"]
         direction TB
@@ -45,7 +47,7 @@ flowchart LR
 
     P1 --> P2 --> P3 --> P4
 
-    classDef off fill:#f1f5f9,stroke:#94a3b8,color:#64748b
+    classDef off fill:#d7dde5,stroke:#7c8a9c,color:#33415a
     classDef dep fill:#ede9fe,stroke:#7c3aed,color:#0b1220
     classDef out fill:#dcfce7,stroke:#16a34a,color:#0b1220
 
