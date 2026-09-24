@@ -27,7 +27,7 @@ depends on is deployed, and that all three can then be removed again.
 ## Scenario steps
 
 ```mermaid
-%%{init: {'themeVariables': {'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', 'fontSize': '13px'}, 'flowchart': {'padding': 10, 'nodeSpacing': 18, 'rankSpacing': 28}}}%%
+%%{init: {'flowchart': {'padding': 10, 'nodeSpacing': 18, 'rankSpacing': 28}}}%%
 flowchart LR
     P1["1) Build environment"]
 
