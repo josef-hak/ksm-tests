@@ -14,7 +14,7 @@
 ## Scenario schema
 
 ```mermaid
-%%{init: {'flowchart': {'padding': 10, 'nodeSpacing': 18, 'rankSpacing': 28}}}%%
+%%{init: {'flowchart': {'padding': 10, 'nodeSpacing': 18, 'rankSpacing': 28, 'subGraphTitleMargin': {'top': 6, 'bottom': 10}}}}%%
 flowchart LR
     P1["1) Build environment"]
 
@@ -22,7 +22,7 @@ flowchart LR
         subgraph W2[" "]
             direction LR
             subgraph D1["Install ServiceTemplates"]
-                T1["• cert-manager-1-20-2<br/>• cert-manager-1-20-3<br/>• cert-manager-1-21-1"]
+                T1["cert-manager-1-20-2<br/>cert-manager-1-20-3<br/>cert-manager-1-21-1"]
             end
 
             subgraph D3["Create ServiceTemplateChain"]
