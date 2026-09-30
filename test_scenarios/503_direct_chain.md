@@ -32,7 +32,8 @@ flowchart LR
             end
 
             subgraph D2["Deploy MultiClusterService"]
-                M1["cert-manager 1.20.2"]
+                direction TB
+                M1["cert-manager 1.20.2"] ~~~ R1["Refer: ServiceTemplateChain"]
             end
 
             D1 --> D3 --> D2
@@ -64,7 +65,7 @@ flowchart LR
     classDef bare fill:none,stroke:none
 
     class P1,U1 off
-    class D1,D2,D3,T1,H1,M1 pink
+    class D1,D2,D3,T1,H1,M1,R1 pink
     class U2,S1,S2 amber
     class C1,C2 green
     class W2,W3 bare
