@@ -22,7 +22,8 @@ flowchart LR
         subgraph W2[" "]
             direction LR
             subgraph D1["Install ServiceTemplates"]
-                T1["cert-manager-1-20-2<br/>cert-manager-1-20-3<br/>cert-manager-1-21-1"]
+                direction TB
+                T1["cert-manager-1-20-2"] ~~~ T2["cert-manager-1-20-3"] ~~~ T3["cert-manager-1-21-1"]
             end
 
             subgraph D3["Create ServiceTemplateChain"]
@@ -32,10 +33,9 @@ flowchart LR
             subgraph D2["Deploy MultiClusterService"]
                 direction TB
                 subgraph DM["mcs-504-stepwise-chain"]
-                    M1["cert-manager-1-20-2"]
+                    direction TB
+                    M1["cert-manager-1-20-2"] ~~~ R1["Refer: ServiceTemplateChain"]
                 end
-
-                DM ~~~ R1["Refer: ServiceTemplateChain"]
             end
 
             D1 --> D3 --> D2
@@ -46,7 +46,7 @@ flowchart LR
         subgraph U2["Upgrade via ServiceTemplateChain"]
             subgraph UM["mcs-504-stepwise-chain"]
                 direction LR
-                V1["cert-manager-1-20-2"] --> V2["cert-manager-1-20-3<br/>in helm history"] --> V3["cert-manager-1-21-1"]
+                V1["cert-manager-1-20-2"] --> V2["cert-manager-1-20-3"] --> V3["cert-manager-1-21-1"]
             end
         end
     end
@@ -66,7 +66,7 @@ flowchart LR
 
     class P1 off
     class D1,D2,D3 purple
-    class DM,T1,H1,M1,R1,UM,V1,V2,V3 pink
+    class DM,T1,T2,T3,H1,M1,R1,UM,V1,V2,V3 pink
     class U2 amber
     class C1,C2 green
     class W2 bare

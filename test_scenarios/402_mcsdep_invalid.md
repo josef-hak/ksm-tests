@@ -32,11 +32,13 @@ flowchart LR
                     M1["cert-manager-1-20-2<br/>never healthy"]
                 end
 
-                subgraph DMD["mcs-402-mcsdep-invalid-dependent<br/>dependsOn: base"]
+                subgraph DMD["mcs-402-mcsdep-invalid-dependent"]
                     M2["traefik-41-2-0<br/>no ServiceSet ever"]
                 end
 
-                DMB --> DMD
+                %% dependsOn on the edge, not in the title: a two-line subgraph
+                %% title overlaps the box below it.
+                DMB -- "dependsOn" --> DMD
             end
 
             D1 --> D2

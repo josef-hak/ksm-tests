@@ -34,10 +34,9 @@ flowchart LR
             subgraph D2["Deploy MultiClusterService"]
                 direction TB
                 subgraph DM["mcs-502-chain-boundary"]
-                    M1["cert-manager-1-20-2"]
+                    direction TB
+                    M1["cert-manager-1-20-2"] ~~~ R1["Refer: ServiceTemplateChain"]
                 end
-
-                DM ~~~ R1["Refer: ServiceTemplateChain"]
             end
 
             D1 --> D3 --> D2

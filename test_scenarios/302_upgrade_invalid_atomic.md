@@ -57,7 +57,8 @@ flowchart LR
                 %% a subgraph makes mermaid drop its direction.
                 subgraph UC[" "]
                     direction LR
-                    V2["cert-manager-1-20-2"] --> V4["cert-manager-1-21-1<br/>refused"] --> V5["cert-manager-1-20-2<br/>rolled back"]
+                    V2["cert-manager-1-20-2"] --> V4["cert-manager-1-21-1<br/>refused"]
+                    V4 -- "rolled back" --> V2
                 end
 
                 UC --> V3["kserve-crd-0-18-0"]
@@ -81,7 +82,7 @@ flowchart LR
 
     class P1 off
     class D1,D2 purple
-    class DM,T1,T2,T3,M1,M2,M3,UM,UC,V1,V2,V3,V5 pink
+    class DM,T1,T2,T3,M1,M2,M3,UM,UC,V1,V2,V3 pink
     class U1 amber
     class V4 fail
     class C1,C2 green

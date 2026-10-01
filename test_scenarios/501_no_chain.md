@@ -24,15 +24,13 @@ flowchart LR
                 T1["cert-manager-1-20-2<br/>cert-manager-1-21-1"]
             end
 
-            D3["No ServiceTemplateChain"]
-
             subgraph D2["Deploy MultiClusterService"]
                 subgraph DM["mcs-501-no-chain"]
                     M1["cert-manager-1-20-2"]
                 end
             end
 
-            D1 --> D3 --> D2
+            D1 --> D2
         end
     end
 
@@ -58,7 +56,7 @@ flowchart LR
     classDef green fill:#dcfce7,stroke:#16a34a,color:#0b1220
     classDef bare fill:none,stroke:none
 
-    class P1,D3 off
+    class P1 off
     class D1,D2 purple
     class DM,T1,M1,UM,V1,V2 pink
     class U1 amber
