@@ -1,0 +1,68 @@
+# 5.1. No chain (501_no_chain)
+
+## Tested steps
+
+1. Install the ServiceTemplates for both versions — the deployed `1.20.2` and the
+   upgrade target `1.21.1` — and wait for each to report `valid`.
+2. No ServiceTemplateChain is created, so nothing gates the upgrade and any declared
+   template is accepted.
+3. Deploy one MultiClusterService with `cert-manager` on `1.20.2`, pods ready.
+4. Ask for `1.21.1`: the helm release has to end up on that version, `deployed`.
+5. Remove the services: MCS, ServiceSet, helm release and workloads all gone.
+
+## Scenario schema
+
+```mermaid
+%%{init: {'flowchart': {'padding': 10, 'nodeSpacing': 18, 'rankSpacing': 28, 'subGraphTitleMargin': {'top': 6, 'bottom': 10}}}}%%
+flowchart LR
+    P1["1) Build environment"]
+
+    subgraph P2["2) Deploy services"]
+        subgraph W2[" "]
+            direction LR
+            subgraph D1["Install ServiceTemplates"]
+                direction TB
+                T1["cert-manager-1-20-2"] ~~~ T2["cert-manager-1-21-1"]
+            end
+
+            subgraph D2["Deploy MultiClusterService"]
+                subgraph DM["mcs-501-no-chain"]
+                    M1["cert-manager-1-20-2"]
+                end
+            end
+
+            D1 --> D2
+        end
+    end
+
+    subgraph P3["3) Upgrade services"]
+        subgraph U1["Direct upgrade"]
+            subgraph UM["mcs-501-no-chain"]
+                direction LR
+                V1["cert-manager-1-20-2"] --> V2["cert-manager-1-21-1"]
+            end
+        end
+    end
+
+    subgraph P4["4) Clean up"]
+        C1["Remove services"] --> C2["Remove k0s cluster"]
+    end
+
+    P1 --> P2 --> P3 --> P4
+
+    classDef off fill:#d7dde5,stroke:#7c8a9c,color:#33415a
+    classDef purple fill:#ede9fe,stroke:#7c3aed,color:#0b1220
+    classDef pink fill:#fce7f3,stroke:#db2777,color:#0b1220
+    classDef amber fill:#fef3c7,stroke:#d97706,color:#0b1220
+    classDef green fill:#dcfce7,stroke:#16a34a,color:#0b1220
+    classDef bare fill:none,stroke:none
+
+    class P1 off
+    class D1,D2 purple
+    class DM,T1,T2,M1,UM,V1,V2 pink
+    class U1 amber
+    class C1,C2 green
+    class W2 bare
+```
+
+Defined in [`501_no_chain.yaml`](501_no_chain.yaml).

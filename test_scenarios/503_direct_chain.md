@@ -1,0 +1,78 @@
+# 5.3. Direct chain (503_direct_chain)
+
+## Tested steps
+
+1. Install the ServiceTemplates for all three versions and wait for each to report
+   `valid`. `1.20.3` is among them on purpose: its template exists, and the chain is
+   still what decides.
+2. Create the ServiceTemplateChain: `1.20.2 → 1.21.1`, with nothing else reachable.
+3. Deploy one MultiClusterService with `cert-manager` on `1.20.2`, pods ready.
+4. Ask for `1.20.3` and watch for 120s: the chain does not list it, so the release must
+   stay on `1.20.2`. A refusal is the absence of a change, so it needs the whole window.
+5. Ask for `1.21.1`: the chain allows exactly this jump, so the release has to end up
+   there, `deployed`.
+6. Remove the services: MCS, ServiceSet, helm release and workloads all gone.
+
+## Scenario schema
+
+```mermaid
+%%{init: {'flowchart': {'padding': 10, 'nodeSpacing': 18, 'rankSpacing': 28, 'subGraphTitleMargin': {'top': 6, 'bottom': 10}}}}%%
+flowchart LR
+    P1["1) Build environment"]
+
+    subgraph P2["2) Deploy services"]
+        subgraph W2[" "]
+            direction LR
+            subgraph D1["Install ServiceTemplates"]
+                direction TB
+                T1["cert-manager-1-20-2"] ~~~ T2["cert-manager-1-20-3"] ~~~ T3["cert-manager-1-21-1"]
+            end
+
+            subgraph D3["Create ServiceTemplateChain"]
+                H1["cert-manager-1-20-2<br/>&nbsp;&nbsp;&nbsp;availableUpgrades: 1.21.1<br/>cert-manager-1-21-1"]
+            end
+
+            subgraph D2["Deploy MultiClusterService"]
+                direction TB
+                subgraph DM["mcs-503-direct-chain"]
+                    direction TB
+                    M1["cert-manager-1-20-2"] ~~~ R1["Refer: ServiceTemplateChain"]
+                end
+            end
+
+            D1 --> D3 --> D2
+        end
+    end
+
+    subgraph P3["3) Upgrade services"]
+        subgraph U2["Upgrade via ServiceTemplateChain"]
+            subgraph UM["mcs-503-direct-chain"]
+                direction LR
+                V1["cert-manager-1-20-2"] --> V2["cert-manager-1-20-3<br/>rejected"]
+                V1 --> V3["cert-manager-1-21-1<br/>applied"]
+            end
+        end
+    end
+
+    subgraph P4["4) Clean up"]
+        C1["Remove services"] --> C2["Remove k0s cluster"]
+    end
+
+    P1 --> P2 --> P3 --> P4
+
+    classDef off fill:#d7dde5,stroke:#7c8a9c,color:#33415a
+    classDef purple fill:#ede9fe,stroke:#7c3aed,color:#0b1220
+    classDef pink fill:#fce7f3,stroke:#db2777,color:#0b1220
+    classDef amber fill:#fef3c7,stroke:#d97706,color:#0b1220
+    classDef green fill:#dcfce7,stroke:#16a34a,color:#0b1220
+    classDef bare fill:none,stroke:none
+
+    class P1,V2 off
+    class D1,D2,D3 purple
+    class DM,T1,T2,T3,H1,M1,R1,UM,V1,V3 pink
+    class U2 amber
+    class C1,C2 green
+    class W2 bare
+```
+
+Defined in [`503_direct_chain.yaml`](503_direct_chain.yaml).
