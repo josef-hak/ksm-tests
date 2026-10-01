@@ -12,7 +12,7 @@
 ## Scenario schema
 
 ```mermaid
-%%{init: {'flowchart': {'padding': 10, 'nodeSpacing': 18, 'rankSpacing': 28}}}%%
+%%{init: {'flowchart': {'padding': 10, 'nodeSpacing': 18, 'rankSpacing': 28, 'subGraphTitleMargin': {'top': 6, 'bottom': 10}}}}%%
 flowchart LR
     P1["1) Build environment"]
 
@@ -24,7 +24,9 @@ flowchart LR
             end
 
             subgraph D2["Deploy MultiClusterService"]
-                M1["traefik"]
+                subgraph DM["mcs-101-basic"]
+                    M1["traefik-41-2-0"]
+                end
             end
 
             D1 --> D2
@@ -40,12 +42,14 @@ flowchart LR
     P1 --> P2 --> P3 --> P4
 
     classDef off fill:#d7dde5,stroke:#7c8a9c,color:#33415a
+    classDef purple fill:#ede9fe,stroke:#7c3aed,color:#0b1220
     classDef pink fill:#fce7f3,stroke:#db2777,color:#0b1220
     classDef green fill:#dcfce7,stroke:#16a34a,color:#0b1220
     classDef bare fill:none,stroke:none
 
     class P1,P3 off
-    class D1,D2,T1,M1 pink
+    class D1,D2 purple
+    class DM,T1,M1 pink
     class C1,C2 green
     class W2 bare
 ```

@@ -35,8 +35,10 @@ flowchart LR
             end
 
             subgraph D2["Deploy MultiClusterService<br/>helmOptions.atomic"]
-                direction TB
-                M1["traefik"] --> M2["cert-manager 1.20.2"] --> M3["kserve-crd"]
+                subgraph DM["mcs-302-upgrade-invalid-atomic"]
+                    direction TB
+                    M1["traefik-41-2-0"] --> M2["cert-manager-1-20-2"] --> M3["kserve-crd-0-18-0"]
+                end
             end
 
             D1 --> D2
@@ -44,15 +46,22 @@ flowchart LR
     end
 
     subgraph P3["3) Upgrade services"]
-        subgraph W3[" "]
-            direction LR
-            subgraph U1["Direct upgrade"]
+        subgraph U1["Direct upgrade"]
+            subgraph UM["mcs-302-upgrade-invalid-atomic"]
                 direction TB
-                S1["cert-manager → 1.21.1<br/>replicaCount: -1<br/>refused by helm"] --> S2["atomic undoes it<br/>back on 1.20.2, healthy"]
-                S3["traefik<br/>kserve-crd<br/>untouched"]
-            end
+                V1["traefik-41-2-0"] --> UC
 
-            U2["Upgrade via ServiceTemplateChain<br/>(skipped)"]
+                %% Own left-to-right box, the only way to keep the versions on
+                %% one row: an arrow between them would rank the next one lower.
+                %% Linked box to box, not node to node -- a node reaching out of
+                %% a subgraph makes mermaid drop its direction.
+                subgraph UC[" "]
+                    direction LR
+                    V2["cert-manager-1-20-2"] --> V4["cert-manager-1-21-1<br/>refused"] --> V5["cert-manager-1-20-2<br/>rolled back"]
+                end
+
+                UC --> V3["kserve-crd-0-18-0"]
+            end
         end
     end
 
@@ -63,18 +72,20 @@ flowchart LR
     P1 --> P2 --> P3 --> P4
 
     classDef off fill:#d7dde5,stroke:#7c8a9c,color:#33415a
+    classDef purple fill:#ede9fe,stroke:#7c3aed,color:#0b1220
     classDef pink fill:#fce7f3,stroke:#db2777,color:#0b1220
     classDef amber fill:#fef3c7,stroke:#d97706,color:#0b1220
     classDef fail fill:#fee2e2,stroke:#dc2626,color:#0b1220
     classDef green fill:#dcfce7,stroke:#16a34a,color:#0b1220
     classDef bare fill:none,stroke:none
 
-    class P1,U2,S3 off
-    class D1,D2,T1,T2,T3,M1,M2,M3 pink
-    class U1,S2 amber
-    class S1 fail
+    class P1 off
+    class D1,D2 purple
+    class DM,T1,T2,T3,M1,M2,M3,UM,UC,V1,V2,V3,V5 pink
+    class U1 amber
+    class V4 fail
     class C1,C2 green
-    class W2,W3 bare
+    class W2 bare
 ```
 
 Defined in [`302_upgrade_invalid_atomic.yaml`](302_upgrade_invalid_atomic.yaml).

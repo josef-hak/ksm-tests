@@ -30,7 +30,15 @@ flowchart LR
 
             subgraph D2["Deploy MultiClusterServices<br/>created together"]
                 direction TB
-                M1["base<br/>cert-manager"] --> M2["dependent<br/>dependsOn: base<br/>traefik"]
+                subgraph DMB["mcs-401-mcsdep-valid-base"]
+                    M1["cert-manager-1-20-2"]
+                end
+
+                subgraph DMD["mcs-401-mcsdep-valid-dependent<br/>dependsOn: base"]
+                    M2["traefik-41-2-0"]
+                end
+
+                DMB --> DMD
             end
 
             D1 --> D2
@@ -46,12 +54,14 @@ flowchart LR
     P1 --> P2 --> P3 --> P4
 
     classDef off fill:#d7dde5,stroke:#7c8a9c,color:#33415a
+    classDef purple fill:#ede9fe,stroke:#7c3aed,color:#0b1220
     classDef pink fill:#fce7f3,stroke:#db2777,color:#0b1220
     classDef green fill:#dcfce7,stroke:#16a34a,color:#0b1220
     classDef bare fill:none,stroke:none
 
     class P1,P3 off
-    class D1,D2,T1,T2,M1,M2 pink
+    class D1,D2 purple
+    class DMB,DMD,T1,T2,M1,M2 pink
     class C1,C2 green
     class W2 bare
 ```

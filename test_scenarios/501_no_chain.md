@@ -27,7 +27,9 @@ flowchart LR
             D3["No ServiceTemplateChain"]
 
             subgraph D2["Deploy MultiClusterService"]
-                M1["cert-manager 1.20.2"]
+                subgraph DM["mcs-501-no-chain"]
+                    M1["cert-manager-1-20-2"]
+                end
             end
 
             D1 --> D3 --> D2
@@ -35,13 +37,11 @@ flowchart LR
     end
 
     subgraph P3["3) Upgrade services"]
-        subgraph W3[" "]
-            direction LR
-            subgraph U1["Direct upgrade"]
-                S1["ask for 1.21.1<br/>nothing constrains it"]
+        subgraph U1["Direct upgrade"]
+            subgraph UM["mcs-501-no-chain"]
+                direction LR
+                V1["cert-manager-1-20-2"] --> V2["cert-manager-1-21-1"]
             end
-
-            U2["Upgrade via ServiceTemplateChain<br/>(skipped)"]
         end
     end
 
@@ -52,16 +52,18 @@ flowchart LR
     P1 --> P2 --> P3 --> P4
 
     classDef off fill:#d7dde5,stroke:#7c8a9c,color:#33415a
+    classDef purple fill:#ede9fe,stroke:#7c3aed,color:#0b1220
     classDef pink fill:#fce7f3,stroke:#db2777,color:#0b1220
     classDef amber fill:#fef3c7,stroke:#d97706,color:#0b1220
     classDef green fill:#dcfce7,stroke:#16a34a,color:#0b1220
     classDef bare fill:none,stroke:none
 
-    class P1,U2,D3 off
-    class D1,D2,T1,M1 pink
-    class U1,S1 amber
+    class P1,D3 off
+    class D1,D2 purple
+    class DM,T1,M1,UM,V1,V2 pink
+    class U1 amber
     class C1,C2 green
-    class W2,W3 bare
+    class W2 bare
 ```
 
 Defined in [`501_no_chain.yaml`](501_no_chain.yaml).

@@ -31,7 +31,11 @@ flowchart LR
 
             subgraph D2["Deploy MultiClusterService"]
                 direction TB
-                M1["cert-manager 1.20.2"] ~~~ R1["Refer: ServiceTemplateChain"]
+                subgraph DM["mcs-504-stepwise-chain"]
+                    M1["cert-manager-1-20-2"]
+                end
+
+                DM ~~~ R1["Refer: ServiceTemplateChain"]
             end
 
             D1 --> D3 --> D2
@@ -39,13 +43,10 @@ flowchart LR
     end
 
     subgraph P3["3) Upgrade services"]
-        subgraph W3[" "]
-            direction LR
-            U1["Direct upgrade<br/>(skipped)"]
-
-            subgraph U2["Upgrade via ServiceTemplateChain"]
-                direction TB
-                S1["ask for 1.21.1"] --> S2["via 1.20.3<br/>checked in helm history"]
+        subgraph U2["Upgrade via ServiceTemplateChain"]
+            subgraph UM["mcs-504-stepwise-chain"]
+                direction LR
+                V1["cert-manager-1-20-2"] --> V2["cert-manager-1-20-3<br/>in helm history"] --> V3["cert-manager-1-21-1"]
             end
         end
     end
@@ -57,16 +58,18 @@ flowchart LR
     P1 --> P2 --> P3 --> P4
 
     classDef off fill:#d7dde5,stroke:#7c8a9c,color:#33415a
+    classDef purple fill:#ede9fe,stroke:#7c3aed,color:#0b1220
     classDef pink fill:#fce7f3,stroke:#db2777,color:#0b1220
     classDef amber fill:#fef3c7,stroke:#d97706,color:#0b1220
     classDef green fill:#dcfce7,stroke:#16a34a,color:#0b1220
     classDef bare fill:none,stroke:none
 
-    class P1,U1 off
-    class D1,D2,D3,T1,H1,M1,R1 pink
-    class U2,S1,S2 amber
+    class P1 off
+    class D1,D2,D3 purple
+    class DM,T1,H1,M1,R1,UM,V1,V2,V3 pink
+    class U2 amber
     class C1,C2 green
-    class W2,W3 bare
+    class W2 bare
 ```
 
 > [!WARNING]
