@@ -52,7 +52,7 @@ flowchart TB
                 %% on one row: an arrow between them would rank 1.21.1 lower.
                 %% Linked box to box, not node to node -- a node reaching out of
                 %% a subgraph makes mermaid drop its direction.
-                subgraph UC["Upgrade cert-manager"]
+                subgraph UC[" "]
                     direction LR
                     V2["cert-manager-1-20-2"] --> V4["cert-manager-1-21-1"]
                 end
@@ -74,8 +74,8 @@ flowchart TB
     classDef green fill:#dcfce7,stroke:#16a34a,color:#0b1220
     classDef bare fill:none,stroke:none
 
-    class P1,V1,V3 off
-    class D1,D2,DM,T1,T2,T3,M1,M2,M3,UM pink
+    class P1 off
+    class D1,D2,DM,T1,T2,T3,M1,M2,M3,UM,V1,V3 pink
     class U1,UC,V2,V4 amber
     class C1,C2 green
     class W2 bare
