@@ -32,8 +32,10 @@ flowchart TB
             end
 
             subgraph D2["Deploy MultiClusterService"]
-                direction TB
-                M1["traefik"] --> M2["cert-manager 1.20.2"] --> M3["kserve-crd"]
+                subgraph DM["mcs-301-upgrade"]
+                    direction TB
+                    M1["traefik-41-2-0"] --> M2["cert-manager-1-20-2"] --> M3["kserve-crd-0-18-0"]
+                end
             end
 
             D1 --> D2
@@ -41,25 +43,22 @@ flowchart TB
     end
 
     subgraph P3["3) Upgrade services"]
-        subgraph W3[" "]
-            direction LR
-            subgraph U1["Upgrade MultiClusterService services"]
+        subgraph U1["Upgrade MultiClusterService services"]
+            subgraph UM["mcs-301-upgrade"]
                 direction TB
-                V1["traefik"] --> UC
+                V1["traefik-41-2-0"] --> UC
 
                 %% Own left-to-right box, the only way to keep the two versions
                 %% on one row: an arrow between them would rank 1.21.1 lower.
                 %% Linked box to box, not node to node -- a node reaching out of
                 %% a subgraph makes mermaid drop its direction.
-                subgraph UC[" "]
+                subgraph UC["Upgrade cert-manager"]
                     direction LR
-                    V2["cert-manager 1.20.2"] --> V4["cert-manager 1.21.1"]
+                    V2["cert-manager-1-20-2"] --> V4["cert-manager-1-21-1"]
                 end
 
-                UC --> V3["kserve-crd"]
+                UC --> V3["kserve-crd-0-18-0"]
             end
-
-            U2["Upgrade via ServiceTemplateChain<br/>(skipped)"]
         end
     end
 
@@ -75,11 +74,11 @@ flowchart TB
     classDef green fill:#dcfce7,stroke:#16a34a,color:#0b1220
     classDef bare fill:none,stroke:none
 
-    class P1,U2,V1,V3 off
-    class D1,D2,T1,T2,T3,M1,M2,M3 pink
-    class U1,V2,V4 amber
+    class P1,V1,V3 off
+    class D1,D2,DM,T1,T2,T3,M1,M2,M3,UM pink
+    class U1,UC,V2,V4 amber
     class C1,C2 green
-    class W2,W3,UC bare
+    class W2 bare
 ```
 
 Defined in [`301_upgrade.yaml`](301_upgrade.yaml).
