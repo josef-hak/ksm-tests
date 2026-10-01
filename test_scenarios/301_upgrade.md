@@ -20,7 +20,7 @@
 
 ```mermaid
 %%{init: {'flowchart': {'padding': 10, 'nodeSpacing': 18, 'rankSpacing': 28, 'subGraphTitleMargin': {'top': 6, 'bottom': 10}}}}%%
-flowchart TB
+flowchart LR
     P1["1) Build environment"]
 
     subgraph P2["2) Deploy services"]
