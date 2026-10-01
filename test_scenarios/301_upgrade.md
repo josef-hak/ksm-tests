@@ -19,7 +19,7 @@
 ## Scenario schema
 
 ```mermaid
-%%{init: {'flowchart': {'padding': 10, 'nodeSpacing': 18, 'rankSpacing': 28, 'subGraphTitleMargin': {'top': 6, 'bottom': 10}}}}%%
+%%{init: {'flowchart': {'diagramPadding': 4, 'padding': 6, 'nodeSpacing': 12, 'rankSpacing': 18, 'subGraphTitleMargin': {'top': 2, 'bottom': 4}}}}%%
 flowchart TB
     P1["1) Build environment"]
 
@@ -43,7 +43,7 @@ flowchart TB
     end
 
     subgraph P3["3) Upgrade services"]
-        subgraph U1["Upgrade MultiClusterService services"]
+        subgraph U1["Direct upgrade"]
             subgraph UM["mcs-301-upgrade"]
                 direction TB
                 V1["traefik-41-2-0"] --> UC
@@ -69,14 +69,16 @@ flowchart TB
     P1 --> P2 --> P3 --> P4
 
     classDef off fill:#d7dde5,stroke:#7c8a9c,color:#33415a
+    classDef purple fill:#ede9fe,stroke:#7c3aed,color:#0b1220
     classDef pink fill:#fce7f3,stroke:#db2777,color:#0b1220
     classDef amber fill:#fef3c7,stroke:#d97706,color:#0b1220
     classDef green fill:#dcfce7,stroke:#16a34a,color:#0b1220
     classDef bare fill:none,stroke:none
 
     class P1 off
-    class D1,D2,DM,T1,T2,T3,M1,M2,M3,UM,V1,V3 pink
-    class U1,UC,V2,V4 amber
+    class D1,D2 purple
+    class DM,T1,T2,T3,M1,M2,M3,UM,UC,V1,V3 pink
+    class U1,V2,V4 amber
     class C1,C2 green
     class W2 bare
 ```
