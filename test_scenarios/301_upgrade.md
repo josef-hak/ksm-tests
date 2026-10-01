@@ -45,8 +45,18 @@ flowchart TB
             direction LR
             subgraph U1["Upgrade MultiClusterService services"]
                 direction TB
-                V1["traefik"] --> V2["cert-manager 1.20.2"] --> V3["kserve-crd"]
-                V2 --> V4["cert-manager 1.21.1"]
+                V1["traefik"] --> UC
+
+                %% Own left-to-right box, the only way to keep the two versions
+                %% on one row: an arrow between them would rank 1.21.1 lower.
+                %% Linked box to box, not node to node -- a node reaching out of
+                %% a subgraph makes mermaid drop its direction.
+                subgraph UC[" "]
+                    direction LR
+                    V2["cert-manager 1.20.2"] --> V4["cert-manager 1.21.1"]
+                end
+
+                UC --> V3["kserve-crd"]
             end
 
             U2["Upgrade via ServiceTemplateChain<br/>(skipped)"]
@@ -69,7 +79,7 @@ flowchart TB
     class D1,D2,T1,T2,T3,M1,M2,M3 pink
     class U1,V2,V4 amber
     class C1,C2 green
-    class W2,W3 bare
+    class W2,W3,UC bare
 ```
 
 Defined in [`301_upgrade.yaml`](301_upgrade.yaml).
