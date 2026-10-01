@@ -20,7 +20,7 @@
 
 ```mermaid
 %%{init: {'flowchart': {'padding': 10, 'nodeSpacing': 18, 'rankSpacing': 28, 'subGraphTitleMargin': {'top': 6, 'bottom': 10}}}}%%
-flowchart LR
+flowchart TB
     P1["1) Build environment"]
 
     subgraph P2["2) Deploy services"]
@@ -43,9 +43,10 @@ flowchart LR
     subgraph P3["3) Upgrade services"]
         subgraph W3[" "]
             direction LR
-            subgraph U1["Direct upgrade"]
+            subgraph U1["Upgrade MultiClusterService services"]
                 direction TB
-                S1["cert-manager<br/>1.20.2 → 1.21.1<br/>rolled out"] ~~~ S2["traefik<br/>kserve-crd<br/>untouched"]
+                V1["traefik"] --> V2["cert-manager 1.20.2"] --> V3["kserve-crd"]
+                V2 --> V4["cert-manager 1.21.1"]
             end
 
             U2["Upgrade via ServiceTemplateChain<br/>(skipped)"]
@@ -64,9 +65,9 @@ flowchart LR
     classDef green fill:#dcfce7,stroke:#16a34a,color:#0b1220
     classDef bare fill:none,stroke:none
 
-    class P1,U2,S2 off
+    class P1,U2,V1,V3 off
     class D1,D2,T1,T2,T3,M1,M2,M3 pink
-    class U1,S1 amber
+    class U1,V2,V4 amber
     class C1,C2 green
     class W2,W3 bare
 ```
