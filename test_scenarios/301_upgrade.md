@@ -19,7 +19,7 @@
 ## Scenario schema
 
 ```mermaid
-%%{init: {'flowchart': {'diagramPadding': 4, 'padding': 6, 'nodeSpacing': 12, 'rankSpacing': 18, 'subGraphTitleMargin': {'top': 2, 'bottom': 4}}}}%%
+%%{init: {'flowchart': {'padding': 10, 'nodeSpacing': 18, 'rankSpacing': 28, 'subGraphTitleMargin': {'top': 6, 'bottom': 10}}}}%%
 flowchart TB
     P1["1) Build environment"]
 
@@ -77,8 +77,8 @@ flowchart TB
 
     class P1 off
     class D1,D2 purple
-    class DM,T1,T2,T3,M1,M2,M3,UM,UC,V1,V3 pink
-    class U1,V2,V4 amber
+    class DM,T1,T2,T3,M1,M2,M3,UM,UC,V1,V2,V3,V4 pink
+    class U1 amber
     class C1,C2 green
     class W2 bare
 ```
