@@ -21,7 +21,8 @@ flowchart LR
         subgraph W2[" "]
             direction LR
             subgraph D1["Install ServiceTemplates"]
-                T1["cert-manager-1-20-2<br/>cert-manager-1-21-1"]
+                direction TB
+                T1["cert-manager-1-20-2"] ~~~ T2["cert-manager-1-21-1"]
             end
 
             subgraph D2["Deploy MultiClusterService"]
@@ -58,7 +59,7 @@ flowchart LR
 
     class P1 off
     class D1,D2 purple
-    class DM,T1,M1,UM,V1,V2 pink
+    class DM,T1,T2,M1,UM,V1,V2 pink
     class U1 amber
     class C1,C2 green
     class W2 bare

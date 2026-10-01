@@ -26,7 +26,7 @@ flowchart LR
 
     subgraph P2["2) Deploy services"]
         direction TB
-        D1["Install ServiceTemplates"] --> D2["Deploy MultiClusterService"]
+        D1["Install ServiceTemplates"] --> D3["Create ServiceTemplateChain"] --> D2["Deploy MultiClusterService"]
     end
 
     subgraph P3["3) Upgrade services"]
@@ -47,7 +47,7 @@ flowchart LR
     classDef out fill:#dcfce7,stroke:#16a34a,color:#0b1220
 
     class E1,E2,E3,E4,E5 env
-    class D1,D2 dep
+    class D1,D2,D3 dep
     class U1,U2 upg
     class C1,C2 out
 ```
