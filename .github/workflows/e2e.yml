@@ -7,10 +7,10 @@ name: E2E
 
 # Cross-repo calls check this out by name: in a called workflow the github
 # context describes the caller, so github.repository is not this repository and
-# a bare checkout clones the wrong one. Moves with the repository, alongside
-# the caller's uses: line.
+# a bare checkout clones the wrong one. A caller running a fork of this
+# repository overrides it with ksm_repo, alongside its uses: line.
 env:
-  SELF_REPO: k0rdent/ksm-tests
+  SELF_REPO: ${{ inputs.ksm_repo || 'k0rdent/ksm-tests' }}
 
 on:
   # Same knobs as workflow_dispatch, for another repository to run its own build
@@ -51,6 +51,13 @@ on:
           called workflow's own ref.
         type: string
         required: true
+      ksm_repo:
+        description: >-
+          The repository of THIS workflow, matching the caller's uses:. Only
+          needed when that is a fork; empty means k0rdent/ksm-tests.
+        type: string
+        required: false
+        default: ''
 
   workflow_dispatch:
     inputs:
@@ -357,3 +364,4 @@ jobs:
       src_url: ${{ inputs.SRC_URL || '' }}
       oci_url: ${{ inputs.OCI_URL || '' }}
       ksm_ref: ${{ inputs.ksm_ref || '' }}
+      ksm_repo: ${{ inputs.ksm_repo || '' }}
