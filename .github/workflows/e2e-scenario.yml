@@ -7,7 +7,7 @@ name: E2E scenario
 # See e2e.yml: a called workflow's github context describes the caller, so a
 # bare checkout clones the wrong repository.
 env:
-  SELF_REPO: k0rdent/ksm-tests
+  SELF_REPO: ${{ inputs.ksm_repo || 'k0rdent/ksm-tests' }}
 
 on:
   workflow_call:
@@ -42,6 +42,11 @@ on:
         default: ''
       ksm_ref:
         description: 'The ref of THIS repository to run; empty when called from within it'
+        type: string
+        required: false
+        default: ''
+      ksm_repo:
+        description: 'The repository of THIS workflow; empty means k0rdent/ksm-tests'
         type: string
         required: false
         default: ''
