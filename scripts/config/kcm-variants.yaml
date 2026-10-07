@@ -19,4 +19,6 @@ variants:
     name: 'release: staging'
     kcm: '1.12.0-rc1-64-gba78125e'
     mode: release
+    # Not in the published charts registry yet.
+    oci: 'oci://ghcr.io/k0rdent/kcm/staging'
     prCheck: true
