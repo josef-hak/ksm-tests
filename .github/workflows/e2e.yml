@@ -37,7 +37,7 @@ on:
         description: 'KCM release oci url (kcm_mode: release)'
         type: string
         required: false
-        default: 'oci://ghcr.io/k0rdent/kcm/charts'
+        default: 'oci://ghcr.io/k0rdent/kcm/staging'
       scenarios:
         description: '(empty = all), e.g. "101_basic, 201_svcdep"'
         type: string
@@ -78,7 +78,7 @@ on:
         required: false
         # The registry, not one chart in it: the scripts pull kcm and
         # kcm-templates from under this path.
-        default: 'oci://ghcr.io/k0rdent/kcm/charts'
+        default: 'oci://ghcr.io/k0rdent/kcm/staging'
       scenarios:
         description: '(empty = all), e.g. "101_basic, 201_svcdep"'
         required: false

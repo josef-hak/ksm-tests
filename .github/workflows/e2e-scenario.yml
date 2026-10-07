@@ -74,7 +74,8 @@ jobs:
       KCM_MODE: ${{ matrix.kcm.mode }}
       # Empty falls through to the default in common.sh.
       SRC_URL: ${{ inputs.src_url }}
-      OCI_URL: ${{ inputs.oci_url }}
+      # A run that names a registry wins; otherwise the variant may carry its own.
+      OCI_URL: ${{ inputs.oci_url || matrix.kcm.oci }}
       SCENARIO: ${{ inputs.scenario }}
       TEST_MODE: self
     steps:
