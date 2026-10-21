@@ -33,6 +33,12 @@ published_port() {
     docker port "$1" "$2" 2>/dev/null | head -1 | awk -F: '{print $NF}'
 }
 
+# container_ip NAME NETWORK -- its address on that docker network.
+# shellcheck disable=SC2317 # called from deploy_adopted_cluster.sh, not here
+container_ip() {
+    docker inspect "$1" -f "{{with index .NetworkSettings.Networks \"$2\"}}{{.IPAddress}}{{end}}" 2>/dev/null
+}
+
 # ensure_network NAME -- create the docker network unless it already exists.
 ensure_network() {
     local name="$1"

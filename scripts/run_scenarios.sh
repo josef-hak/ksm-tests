@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# One cluster, several scenarios, one after another. No `set -e`: a scenario
-# that fails must not take the rest of the run with it -- the point of a serial
-# run is many verdicts from one environment.
+# One cluster, several scenarios, one after another. No `set -e`: the loop
+# decides what a failure means, and it still has a summary to print.
 set -uo pipefail
 
 # Run a set of scenarios against ./kcfg_k0rdent, in order.
@@ -12,6 +11,10 @@ set -uo pipefail
 # Each scenario removes its own services, so the next one starts from the same
 # cluster state -- remove_services.sh asserts that, which is what makes sharing
 # a cluster safe.
+#
+# The run stops at the first failure: on a shared cluster the ones after it
+# would be starting from a state nobody asserted anyway, and the environment
+# costs minutes that a known-bad run should not spend.
 
 # shellcheck source=scripts/lib/common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
@@ -42,7 +45,7 @@ step "Serial run: ${#ordered[@]} scenario(s) on $(basename "$(readlink -f "$KUBE
 printf '   %s\n' "${ordered[@]}"
 
 declare -A RESULT ELAPSED
-failed=0
+FAILED=""
 n=0
 RUN_START=$SECONDS
 
@@ -57,20 +60,23 @@ for id in "${ordered[@]}"; do
         RESULT["$id"]="passed"
     else
         RESULT["$id"]="FAILED"
-        failed=$(( failed + 1 ))
-        warn "$id failed -- continuing with the rest"
+        FAILED="$id"
     fi
     ELAPSED["$id"]=$(( SECONDS - start ))
+    [[ -n "$FAILED" ]] && break
 done
 
+# Says what was never attempted as well as what ran: a summary listing three
+# scenarios after a run that stopped at the first would read as three verdicts.
 step "Summary"
 for id in "${ordered[@]}"; do
-    printf '   %-28s %-7s %dm%02ds\n' \
-        "$id" "${RESULT[$id]}" "$(( ELAPSED[$id] / 60 ))" "$(( ELAPSED[$id] % 60 ))"
+    printf '   %-28s %-9s %s\n' "$id" "${RESULT[$id]:-not run}" \
+        "$( [[ -n "${ELAPSED[$id]:-}" ]] \
+            && printf '%dm%02ds' "$(( ELAPSED[$id] / 60 ))" "$(( ELAPSED[$id] % 60 ))" )"
 done
 log "Total $(( (SECONDS - RUN_START) / 60 ))m$(( (SECONDS - RUN_START) % 60 ))s"
 
-if (( failed )); then
-    die "$failed of ${#ordered[@]} scenario(s) failed"
+if [[ -n "$FAILED" ]]; then
+    die "$FAILED failed -- stopping, $(( ${#ordered[@]} - n )) scenario(s) not run"
 fi
 ok "All ${#ordered[@]} scenarios passed"

@@ -44,6 +44,8 @@ if command -v docker >/dev/null 2>&1 \
 fi
 
 rm -f "$KUBECONFIG_ADOPTED" "$KUBECONFIG_ADOPTED.bak" \
-      "$ENVDIR/adopted-kubeconfig.incluster.yaml" "$ENVDIR/adopted-cluster.rendered.yaml"
+      "$ENVDIR/adopted-kubeconfig.incluster.yaml" \
+      "$ENVDIR/adopted-credential.rendered.yaml" \
+      "$ENVDIR/adopted-clusterdeployment.rendered.yaml"
 
 ok "Adopted cluster removed"

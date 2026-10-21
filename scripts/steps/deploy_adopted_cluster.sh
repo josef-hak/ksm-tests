@@ -41,10 +41,17 @@ write_k0s_kubeconfig "$ADOPTED_CLUSTER_NAME" \
     "https://127.0.0.1:$ADOPTED_API_PORT" "$KUBECONFIG_ADOPTED"
 log "host:    $KUBECONFIG_ADOPTED -> 127.0.0.1:$ADOPTED_API_PORT"
 
+# By address, not by container name: k0s issues the API certificate for
+# kubernetes, localhost and the node's IP, and nothing else. Sveltos reaches
+# the name but then fails TLS verification on it, and the SveltosCluster sits
+# Down with the services never deployed.
+ADOPTED_IP="$(container_ip "$ADOPTED_CLUSTER_NAME" "$DOCKER_NETWORK")"
+[[ -n "$ADOPTED_IP" ]] \
+    || die "Container '$ADOPTED_CLUSTER_NAME' has no address on network '$DOCKER_NETWORK'"
+
 INCLUSTER="$ENVDIR/adopted-kubeconfig.incluster.yaml"
-write_k0s_kubeconfig "$ADOPTED_CLUSTER_NAME" \
-    "https://$ADOPTED_CLUSTER_NAME:6443" "$INCLUSTER"
-log "in KCM:  $ADOPTED_CLUSTER_NAME:6443"
+write_k0s_kubeconfig "$ADOPTED_CLUSTER_NAME" "https://$ADOPTED_IP:6443" "$INCLUSTER"
+log "in KCM:  $ADOPTED_IP:6443"
 
 step "Waiting for the adopted cluster's node"
 until KUBECONFIG="$KUBECONFIG_ADOPTED" kubectl get nodes --no-headers 2>/dev/null | grep -q .; do
@@ -72,8 +79,11 @@ CLUSTER_TEMPLATE="$(tr ' ' '\n' <<< "${CLUSTER_TEMPLATES:-}" | grep '^adopted-cl
 [[ -n "$CLUSTER_TEMPLATE" ]] \
     || die "No adopted-cluster ClusterTemplate was applied. KCM_CLUSTER_TEMPLATES='$KCM_CLUSTER_TEMPLATES'"
 
-MANIFEST="$ENVDIR/adopted-cluster.rendered.yaml"
-cat > "$MANIFEST" <<EOF
+# Two manifests, not one: the ClusterDeployment admission webhook refuses a
+# Credential that is not Ready yet, and `kubectl apply -f` of a single file
+# creates all three in the same breath.
+CREDENTIAL="$ENVDIR/adopted-credential.rendered.yaml"
+cat > "$CREDENTIAL" <<EOF
 apiVersion: v1
 kind: Secret
 metadata:
@@ -97,7 +107,18 @@ spec:
     kind: Secret
     name: $ADOPTED_SECRET_NAME
     namespace: $NAMESPACE
----
+EOF
+
+step "Creating the Credential for '$ADOPTED_CLUSTER_NAME'"
+# Not the manifest: it carries the cluster's admin kubeconfig.
+log "secret: $ADOPTED_SECRET_NAME, credential: $ADOPTED_CRED_NAME"
+kube apply -f "$CREDENTIAL"
+
+wait_for_ready Credential "$ADOPTED_CRED_NAME" "$NAMESPACE" "$MCS_TIMEOUT" \
+    || die "Credential '$ADOPTED_CRED_NAME' never became ready"
+
+MANIFEST="$ENVDIR/adopted-clusterdeployment.rendered.yaml"
+cat > "$MANIFEST" <<EOF
 apiVersion: k0rdent.mirantis.com/v1beta1
 kind: ClusterDeployment
 metadata:
@@ -114,13 +135,10 @@ spec:
     clusterAnnotations: {}
 EOF
 
-step "Creating the Credential and ClusterDeployment '$ADOPTED_CLD_NAME'"
-# Not the manifest: it carries the cluster's admin kubeconfig.
+step "Creating the ClusterDeployment '$ADOPTED_CLD_NAME'"
 log "template: $CLUSTER_TEMPLATE, label: $ADOPTED_LABEL_KEY=$ADOPTED_LABEL_VALUE"
+cat "$MANIFEST"
 kube apply -f "$MANIFEST"
-
-wait_for_ready Credential "$ADOPTED_CRED_NAME" "$NAMESPACE" "$MCS_TIMEOUT" \
-    || die "Credential '$ADOPTED_CRED_NAME' never became ready"
 
 step "Waiting for '$ADOPTED_CLD_NAME' to be adopted"
 if ! wait_for_condition ClusterDeployment "$ADOPTED_CLD_NAME" "$NAMESPACE" Ready "$MCS_TIMEOUT"; then
