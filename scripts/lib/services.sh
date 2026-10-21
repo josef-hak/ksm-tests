@@ -333,17 +333,31 @@ EOF
         echo "    - $(mcs_object_name "$(mcs_index_of "$dep")")" >> "$out"
     done < <(mcs_depends_on "${MCS_IDX:-0}")
 
-    # provider before services, and both after dependsOn: dependsOn sits on the
-    # MCS itself, one level above serviceSpec.
+    # clusterSelector sits on the MCS itself, like dependsOn, and matches
+    # ClusterDeployment labels. Under self-management there is no
+    # ClusterDeployment to match, so the provider carries the target instead.
+    if [[ "$TEST_MODE" == "adopted" ]]; then
+        cat >> "$out" <<EOF
+  clusterSelector:
+    matchLabels:
+      $ADOPTED_LABEL_KEY: $ADOPTED_LABEL_VALUE
+EOF
+    fi
+
+    # provider before services, and both after dependsOn and clusterSelector.
     cat >> "$out" <<EOF
   serviceSpec:
     provider:
       name: $KSM_PROVIDER
+EOF
+    if [[ "$TEST_MODE" != "adopted" ]]; then
+        cat >> "$out" <<EOF
       # KCM deploys into the cluster it runs in, so there is no
       # ClusterDeployment to select and no second cluster to reach.
       selfManagement: true
-    services:
 EOF
+    fi
+    echo "    services:" >> "$out"
 
     local name chart version _repo namespace dep _wait values
     while IFS="$SERVICE_SEP" read -r name chart version _repo namespace dep _wait; do

@@ -51,9 +51,20 @@ assert_eq "mode defaults to release" "release" \
 
 # TEST_MODE is validated the same way, and for the same reason: a value left
 # over from another project used to reach the cluster build.
-out=$(TEST_MODE=adopted bash -c "source '$SCRIPTS_DIR/lib/common.sh'" 2>&1)
+out=$(TEST_MODE=kind bash -c "source '$SCRIPTS_DIR/lib/common.sh'" 2>&1)
 assert_eq "invalid TEST_MODE is rejected" 1 "$?"
-assert_contains "names the bad value" "$out" "adopted"
+assert_contains "names the bad value" "$out" "kind"
+
+# CLD_ADOPTED and TEST_MODE describe the same choice, so the pair has to agree
+# rather than one silently winning.
+out=$(CLD_ADOPTED=yes bash -c "source '$SCRIPTS_DIR/lib/common.sh'" 2>&1)
+assert_eq "invalid CLD_ADOPTED is rejected" 1 "$?"
+assert_contains "names the bad value" "$out" "yes"
+
+out=$(CLD_ADOPTED=true TEST_MODE=self bash -c "source '$SCRIPTS_DIR/lib/common.sh'" 2>&1)
+assert_eq "self with an adopted cluster is rejected" 1 "$?"
+out=$(CLD_ADOPTED=false TEST_MODE=adopted bash -c "source '$SCRIPTS_DIR/lib/common.sh'" 2>&1)
+assert_eq "adopted without one is rejected" 1 "$?"
 
 # ── KCM is the version, the ref, and the name ────────────────────────────────
 assert_eq "KCM is the chart version in release mode" "1.12.0-rc1" \

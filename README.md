@@ -53,9 +53,15 @@ flowchart LR
     class C1,C2 out
 ```
 
-## Self-management testing
-Tests are run in `self-management` mode to keep testing environment as simple as
-possible, because it just requires a single testing k0s cluster.
+## Where the services land
+`CLD_ADOPTED=true` (the default) builds a second k0s container and hands it to
+KCM as an adopted `ClusterDeployment`, labelled `test_cld: adopted`, which the
+`MultiClusterService` selects on. The services are then verified on a cluster
+KCM reaches over the network.
+
+`CLD_ADOPTED=false` falls back to `self-management`: one k0s cluster, no
+`ClusterDeployment`, KCM deploys into itself. Simpler and faster, but it cannot
+cover anything that depends on the cluster being remote.
 
 Everything is a shell script, same scripts run in CI and locally.
 
@@ -109,14 +115,15 @@ scripts/            the entry points below; everything you run by hand
 # Create local k0s-in-docker cluster "k0rdent-<KCM>", deploy KCM
 export KCM=1.12.0-rc.3 # (required), can be any release tag of OCI_URL chart
 # ... export k0rdent cluster kubeconfig to kcfg_k0rdent and kcfg_k0rdent_<KCM>
-# export TEST_MODE=self (default); TODO later: "adopted, aws, gcp"
+# export CLD_ADOPTED=true (default) # second k0s cluster, adopted; false = self-management
+#                                   # TODO later: aws, azure, gcp
 # export KCM_MODE=release (default); "source" - build and deploy kcm from SRC_URL git, KCM ref (tag, branch, sha)
 ./scripts/deploy_k0rdent.sh
 ~~~
 
 ### Run scenario
 ~~~bash
-# TEST_MODE=self (default); "adopted" - run scenario in adopted mode (child)
+# CLD_ADOPTED has to match the one deploy_k0rdent.sh built, and does by default
 # Run scenario on KUBECONFIG=kcfg_k0rdent
 export SCENARIO=101_basic # (required) scenario id, fail for invalid, list available scenarios.
 # export SCENARIO_KEEP=false (default) # optionally keep resources created by scenario 

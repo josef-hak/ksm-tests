@@ -184,6 +184,21 @@ assert_eq "the upgraded MCS pins the new one" "cert-manager-1-21-1" \
 assert_eq "untouched services keep their template" "traefik-41-2-0" \
     "$(yq -r '.spec.serviceSpec.services[] | select(.name=="traefik") | .template' "$after")"
 
+# How the MCS finds the cluster, which is the whole difference between the two
+# modes. Both have to be rendered here: a selector with selfManagement still
+# set would deploy to the management cluster as well as the adopted one.
+adopted_mcs="$(mktemp)"; TEST_MODE=adopted render_mcs "$adopted_mcs" initial
+assert_eq "adopted mode selects the ClusterDeployment by label" "adopted" \
+    "$(yq -r ".spec.clusterSelector.matchLabels.$ADOPTED_LABEL_KEY" "$adopted_mcs")"
+assert_eq "and does not ask for self-management" "null" \
+    "$(yq -r '.spec.serviceSpec.provider.selfManagement' "$adopted_mcs")"
+
+self_mcs="$(mktemp)"; TEST_MODE=self render_mcs "$self_mcs" initial
+assert_eq "self mode asks for self-management" "true" \
+    "$(yq -r '.spec.serviceSpec.provider.selfManagement' "$self_mcs")"
+assert_eq "and selects nothing" "null" \
+    "$(yq -r '.spec.clusterSelector' "$self_mcs")"
+
 SERVICES_FILE="$SCENARIOS_DIR/302_upgrade_invalid_atomic.yaml"
 assert_eq "the atomic scenario sets atomic" "true" \
     "$(scenario_helm_options 0 | yq -r '.atomic')"

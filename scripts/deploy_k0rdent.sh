@@ -48,6 +48,9 @@ fi
 "$SCRIPTS_DIR/steps/wait_for_templates.sh"
 "$SCRIPTS_DIR/steps/apply_management.sh"
 "$SCRIPTS_DIR/steps/wait_for_management.sh"
+# A no-op unless CLD_ADOPTED is true. Last: it needs the adopted-cluster
+# ClusterTemplate, which only goes valid once the Management exists.
+"$SCRIPTS_DIR/steps/deploy_adopted_cluster.sh"
 
 ok "k0rdent $KCM is up in $(( (SECONDS - START) / 60 ))m$(( (SECONDS - START) % 60 ))s"
 log "export KUBECONFIG=${KUBECONFIG_MGMT#"$PROJECT_ROOT"/}"

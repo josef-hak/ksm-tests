@@ -77,7 +77,9 @@ jobs:
       # A run that names a registry wins; otherwise the variant may carry its own.
       OCI_URL: ${{ inputs.oci_url || matrix.kcm.oci }}
       SCENARIO: ${{ inputs.scenario }}
-      TEST_MODE: self
+      # TEMPORARY: true, to exercise adopted mode in CI. TEST_MODE follows from
+      # it -- 'adopted' here, 'self' when this is false.
+      CLD_ADOPTED: 'true'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -146,6 +148,10 @@ jobs:
       - name: '1) Build environment: Wait for Management'
         run: ./scripts/steps/wait_for_management.sh
 
+      - name: '1) Build environment: Deploy adopted ClusterDeployment'
+        if: env.CLD_ADOPTED == 'true'
+        run: ./scripts/steps/deploy_adopted_cluster.sh
+
       - name: '2) Deploy services: Install ServiceTemplates'
         run: ./scripts/steps/install_servicetemplate.sh
 
@@ -164,6 +170,12 @@ jobs:
 
       - name: '4) Clean up: Remove services'
         run: ./scripts/steps/remove_services.sh
+
+      # Before the diagnostics, so a cluster that refuses to detach is part of
+      # what the run reports rather than something the teardown hides.
+      - name: '4) Clean up: Remove adopted ClusterDeployment'
+        if: env.CLD_ADOPTED == 'true'
+        run: ./scripts/steps/remove_adopted_cluster.sh
 
       - name: Collect diagnostics
         if: failure()

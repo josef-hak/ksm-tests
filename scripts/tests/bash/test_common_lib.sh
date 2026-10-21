@@ -16,15 +16,27 @@ assert_eq "PROJECT_ROOT points at the repo" "$REPO_ROOT" "$PROJECT_ROOT"
 assert_eq "CONFIG_DIR is derived from it" "$REPO_ROOT/scripts/config" "$CONFIG_DIR"
 
 # ── defaults ─────────────────────────────────────────────────────────────────
-assert_eq "TEST_MODE defaults to self" "self" "$TEST_MODE"
-# One cluster, so the checks read back through the same kubeconfig they wrote
-# through. A second path here would mean a second cluster came back.
-assert_eq "the child kubeconfig is the management one" "$KUBECONFIG_MGMT" "$KUBECONFIG_CHILD"
+assert_eq "CLD_ADOPTED defaults to true" "true" "$CLD_ADOPTED"
+assert_eq "so TEST_MODE follows it to adopted" "adopted" "$TEST_MODE"
+# Two clusters now, so the checks have to read back through the other one.
+assert_not_eq "the child kubeconfig is not the management one" \
+    "$KUBECONFIG_MGMT" "$KUBECONFIG_CHILD"
+assert_eq "it is the adopted cluster's" "$KUBECONFIG_ADOPTED" "$KUBECONFIG_CHILD"
 assert_contains "sveltos is enabled" "$KCM_PROVIDERS" "projectsveltos"
-# Nothing is provisioned under self-management, so anything else here would
-# just be a chart KCM reconciles for nothing.
+# An adopted cluster is a SveltosCluster over a kubeconfig, so no infra
+# provider is installed for it -- only the ClusterTemplate it is built from.
 assert_eq "sveltos is the whole provider list" "projectsveltos" "$KCM_PROVIDERS"
-assert_eq "and no cluster template is needed" "" "$KCM_CLUSTER_TEMPLATES"
+assert_eq "the adopted cluster template is installed" "adopted-cluster" "$KCM_CLUSTER_TEMPLATES"
+
+# Turning it off puts the one-cluster setup back, kubeconfig and all. The three
+# unsets are because sourcing the library above exported them: a child shell
+# would otherwise inherit the adopted answers and report them as its own.
+self="$(env -u TEST_MODE -u KUBECONFIG_CHILD -u KCM_CLUSTER_TEMPLATES CLD_ADOPTED=false bash -c \
+    "source '$SCRIPTS_DIR/lib/common.sh'; echo \"\$TEST_MODE \$KCM_CLUSTER_TEMPLATES\"")"
+assert_eq "CLD_ADOPTED=false is self-management with no cluster template" "self " "$self"
+assert_eq "and the child kubeconfig is the management one" "$KUBECONFIG_MGMT" \
+    "$(env -u TEST_MODE -u KUBECONFIG_CHILD -u KCM_CLUSTER_TEMPLATES CLD_ADOPTED=false bash -c \
+        "source '$SCRIPTS_DIR/lib/common.sh'; echo \$KUBECONFIG_CHILD")"
 assert_not_contains "aws provider is off" "$KCM_PROVIDERS" "cluster-api-provider-aws"
 assert_not_contains "azure provider is off" "$KCM_PROVIDERS" "cluster-api-provider-azure"
 # Only source mode uses the local registry; release mode pulls from the URL.
