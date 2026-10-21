@@ -81,7 +81,9 @@ deploys the services into the cluster it runs in. No second cluster, no
 | [`503_direct_chain`](test_scenarios/503_direct_chain.md) | only what the chain lists is accepted |
 | [`504_stepwise_chain`](test_scenarios/504_stepwise_chain.md) | a multi-hop chain is walked, not skipped |
 
-Each runs against two KCM builds: `src: main` and `release: 1.12.0-rc.3`.
+Each runs against the two KCM builds in
+[`kcm-variants.yaml`](scripts/config/kcm-variants.yaml): `src: main` and
+`release: staging`.
 
 Install, `Management` reconcile and teardown are asserted too, because KSM
 sits on them. Cloud provisioning is out of scope.
