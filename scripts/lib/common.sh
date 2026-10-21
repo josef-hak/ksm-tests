@@ -378,9 +378,18 @@ k0rdent_clusters() {
 
 # check_scenario -- a typo should say what is available, not just refuse.
 check_scenario() {
-    [[ -f "$SERVICES_FILE" ]] && return 0
-    die "Unknown scenario '$SCENARIO' (no $SERVICES_FILE).
+    [[ -f "$SERVICES_FILE" ]] \
+        || die "Unknown scenario '$SCENARIO' (no $SERVICES_FILE).
 Available: $(list_scenarios | tr '\n' ' ')"
+
+    # MCS_NAME is derived from SCENARIO but overridable, so one exported by an
+    # earlier scenario wins over the current SCENARIO -- and SERVICES_FILE,
+    # exported alongside it, takes the services with it. That is invisible: the
+    # run passes, having tested the wrong file under the right name. Checked
+    # rather than trusted, because nothing else would say so.
+    [[ "$MCS_NAME" == "mcs-$SCENARIO_SLUG" ]] \
+        || die "SCENARIO='$SCENARIO' but MCS_NAME='$MCS_NAME', not 'mcs-$SCENARIO_SLUG'.
+Unset MCS_NAME: it is left over from another scenario."
 }
 
 # ── Filesystem helpers ───────────────────────────────────────────────────────

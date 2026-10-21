@@ -44,6 +44,22 @@ done
 step "Serial run: ${#ordered[@]} scenario(s) on $(basename "$(readlink -f "$KUBECONFIG_MGMT")")"
 printf '   %s\n' "${ordered[@]}"
 
+export KUBECONFIG="$KUBECONFIG_MGMT"
+
+# The next scenario has to start from the state the last one started from.
+# remove_services.sh asserts its own objects are gone; this asserts nothing
+# else is left either, because a stray MultiClusterService surfaces as a
+# failure somewhere unrelated two scenarios later.
+assert_cluster_clean() {
+    local left
+    left="$(kube get multiclusterservice -n "$NAMESPACE" -o name 2>/dev/null || true)"
+    [[ -z "$left" ]] && return 0
+    warn "MultiClusterService still on the cluster after $1:"
+    # shellcheck disable=SC2001 # per-line prefix, not a substring replace
+    sed 's/^/     /' <<< "$left" >&2
+    return 1
+}
+
 declare -A RESULT ELAPSED
 FAILED=""
 n=0
@@ -55,9 +71,19 @@ for id in "${ordered[@]}"; do
     start=$SECONDS
     # A log directory per scenario: collect_logs.sh writes into $LOG_DIR, and
     # a shared one would leave only the last failure behind. CI uploads logs*/.
-    if SCENARIO="$id" SCENARIO_KEEP=false LOG_DIR="$PROJECT_ROOT/logs-$id" \
+    # The unsets matter: sourcing the library above exported SERVICES_FILE and
+    # MCS_NAME for whatever SCENARIO was current then, and a child honours the
+    # inherited pair over its own SCENARIO. That ran 101_basic eleven times
+    # under eleven names, and passed.
+    if env -u SERVICES_FILE -u MCS_NAME \
+        SCENARIO="$id" SCENARIO_KEEP=false LOG_DIR="$PROJECT_ROOT/logs-$id" \
         "$SCRIPTS_DIR/run_scenario.sh"; then
-        RESULT["$id"]="passed"
+        if assert_cluster_clean "$id"; then
+            RESULT["$id"]="passed"
+        else
+            RESULT["$id"]="UNCLEAN"
+            FAILED="$id"
+        fi
     else
         RESULT["$id"]="FAILED"
         FAILED="$id"

@@ -33,6 +33,15 @@ out=$(SCENARIO=nope bash -c "unset SERVICES_FILE; source '$SCRIPTS_DIR/lib/commo
 assert_eq "an unknown scenario is rejected" 1 "$?"
 assert_contains "lists the available scenarios" "$out" "201_svcdep"
 
+# MCS_NAME and SERVICES_FILE are exported, and a child honours an inherited
+# pair over its own SCENARIO. A serial run did exactly that: eleven scenarios,
+# all of them deploying 101_basic's services, all of them green. A run that
+# tests the wrong thing has to fail, not pass.
+out=$(MCS_NAME=mcs-101-basic SCENARIO=504_stepwise_chain bash -c \
+    "unset SERVICES_FILE; source '$SCRIPTS_DIR/lib/common.sh'; check_scenario" 2>&1)
+assert_eq "an MCS_NAME from another scenario is rejected" 1 "$?"
+assert_contains "and says what it should have been" "$out" "mcs-504-stepwise-chain"
+
 # Underscores are legal in a filename but not in a Kubernetes object name, and
 # the scenario reaches MCS_NAME.
 slug="$(SCENARIO=201_svcdep bash -c "source '$SCRIPTS_DIR/lib/common.sh'; echo \$SCENARIO_SLUG")"
@@ -305,14 +314,27 @@ assert_eq "the dependency carries its namespace" "cert-manager" \
 # wait forever for a service that is never deployed.
 assert_eq "cert-manager has no dependsOn in the MCS" "null" \
     "$(yq -r '.spec.serviceSpec.services[] | select(.name=="cert-manager") | .dependsOn' "$WORKDIR/mcs.yaml" 2>/dev/null)"
-# The values must survive as a nested block, since the chart is a wrapper.
-# crds is off on purpose: KCM's own release owns the cert-manager CRDs in the
-# cluster the services now deploy into, and a second owner cannot import them.
-vals="$(yq -r '.spec.serviceSpec.services[] | select(.name=="cert-manager") | .values' "$WORKDIR/mcs.yaml" 2>/dev/null)"
-assert_eq "cert-manager values reach the subchart" "false" \
+# The values must survive as a nested block, since the chart is a wrapper --
+# and which block wins is the whole difference between the two modes. Under
+# self-management KCM's own release owns the cert-manager CRDs in the cluster
+# the services deploy into, so this copy must not install them; on an adopted
+# cluster nothing else provides them and kserve-resources cannot render its
+# Certificate without them.
+cm_values() { # cm_values MODE
+    local out="$WORKDIR/mcs-$1.yaml"
+    TEST_MODE="$1" render_mcs "$out" initial
+    yq -r '.spec.serviceSpec.services[] | select(.name=="cert-manager") | .values' "$out" 2>/dev/null
+}
+
+vals="$(cm_values self)"
+assert_eq "self-management leaves the CRDs to KCM" "false" \
     "$(yq -r '.["cert-manager"].crds.enabled' <<< "$vals")"
-assert_eq "and rename it away from KCM's own" "scenario-cert-manager" \
+assert_eq "and renames the chart away from KCM's own" "scenario-cert-manager" \
     "$(yq -r '.["cert-manager"].fullnameOverride' <<< "$vals")"
+
+vals="$(cm_values adopted)"
+assert_eq "an adopted cluster installs the CRDs" "true" \
+    "$(yq -r '.["cert-manager"].crds.enabled' <<< "$vals")"
 
 rm -rf "$WORKDIR" "$MOCK_BIN"
 finish

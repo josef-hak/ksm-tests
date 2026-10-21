@@ -82,7 +82,20 @@ all_service_namespaces() {
 }
 
 # service_values NAME -- the values block for one service, empty if it has none.
+# service_values NAME -- the values block, preferring the one for the mode in
+# use. Some values only exist to work around self-management: the services land
+# in KCM's own cluster there, so a chart must not fight it over CRDs or object
+# names. On an adopted cluster none of that is true, and the workaround becomes
+# the bug -- cert-manager installing no CRDs leaves the next chart unable to
+# render its Certificate.
 service_values() {
+    local v
+    if [[ "$TEST_MODE" == "adopted" ]]; then
+        v="$(NAME="$1" yq -r \
+            "$(mcs_root).services[] | select(.name == strenv(NAME)) | .valuesAdopted // \"\"" \
+            "$SERVICES_FILE")"
+        [[ -n "$v" ]] && { echo "$v"; return; }
+    fi
     NAME="$1" yq -r "$(mcs_root).services[] | select(.name == strenv(NAME)) | .values // \"\"" "$SERVICES_FILE"
 }
 
