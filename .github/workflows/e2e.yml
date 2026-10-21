@@ -108,6 +108,7 @@ on:
       - 'test_scenarios/**'
       - .github/workflows/e2e.yml
       - .github/workflows/e2e-scenario.yml
+      - .github/workflows/e2e-serial.yml
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -115,6 +116,7 @@ on:
       - 'test_scenarios/**'
       - .github/workflows/e2e.yml
       - .github/workflows/e2e-scenario.yml
+      - .github/workflows/e2e-serial.yml
 
 # Grouped by branch, not github.ref, so a second push to a PR cancels the first.
 # Manual runs are also keyed by what they were asked to run, so two dispatches
@@ -133,6 +135,9 @@ jobs:
     if: github.event_name != 'schedule' || vars.ENABLE_CRON == '1'
     outputs:
       scenarios: ${{ steps.scan.outputs.scenarios }}
+      run_mode: ${{ steps.scan.outputs.run_mode }}
+      serial_scenarios: ${{ steps.scan.outputs.serial_scenarios }}
+      serial_variants: ${{ steps.scan.outputs.serial_variants }}
     steps:
       # Full history: the pull-request selection diffs against the base commit.
       - uses: actions/checkout@v7
@@ -161,6 +166,9 @@ jobs:
           # 'pull_request' there, but the diff and the base sha belong to the
           # caller, not to this repository.
           EVENT: ${{ inputs.ksm_ref && 'workflow_dispatch' || github.event_name }}
+          # Empty for push, schedule and pull_request -- inputs only exist for
+          # a dispatch or a call, so the fallback below is the real default.
+          WANT_RUN_MODE: ${{ inputs.RUN_MODE }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.sha }}
           FULL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'ci:full') }}
@@ -186,6 +194,17 @@ jobs:
               echo "src: $ref"
             fi
           }
+
+          # TEMPORARY: serial, to exercise it in CI. The default belongs back
+          # at 'parallel' once it has been seen to work.
+          RUN_MODE="${WANT_RUN_MODE:-serial}"
+          case "$RUN_MODE" in
+            parallel|serial) ;;
+            *) echo "RUN_MODE must be 'parallel' or 'serial', got '$RUN_MODE'" >&2
+               exit 1 ;;
+          esac
+          echo "run_mode=$RUN_MODE" >> "$GITHUB_OUTPUT"
+          echo "Run mode: $RUN_MODE"
 
           all_ids=()
           for f in test_scenarios/*.yaml; do all_ids+=("$(basename "$f" .yaml)"); done
@@ -355,6 +374,12 @@ jobs:
           echo "scenarios=$scenarios" >> "$GITHUB_OUTPUT"
           jq -r '.[] | "  \(.id): \(.variants | fromjson | map(.id) | join(", "))"' <<< "$scenarios"
 
+          # A serial run is one environment for the whole selection, so the
+          # per-scenario variant sets collapse into their union -- in a pull
+          # request every scenario already carries the same single variant.
+          echo "serial_scenarios=$(jq -r '[.[].id] | join(" ")' <<< "$scenarios")" >> "$GITHUB_OUTPUT"
+          echo "serial_variants=$(jq -c '[.[].variants | fromjson] | add // [] | unique_by(.id)' <<< "$scenarios")" >> "$GITHUB_OUTPUT"
+
   # The called job repeats the scenario, on purpose: a reusable workflow's job is
   # shown under the names of every job above it and the sidebar shows only the
   # last segment, so each has to stand on its own. Not omitted -- a matrix job
@@ -364,7 +389,7 @@ jobs:
     name: ${{ matrix.scenario.id }}
     needs: discover
     # A docs-only pull request selects nothing.
-    if: needs.discover.outputs.scenarios != '[]'
+    if: needs.discover.outputs.scenarios != '[]' && needs.discover.outputs.run_mode != 'serial'
     strategy:
       fail-fast: false
       matrix:
@@ -375,6 +400,20 @@ jobs:
       kcm_variants: ${{ matrix.scenario.variants }}
       has_upgrade: ${{ matrix.scenario.upgrade }}
       has_chain: ${{ matrix.scenario.chain }}
+      src_url: ${{ inputs.SRC_URL || '' }}
+      oci_url: ${{ inputs.OCI_URL || '' }}
+      ksm_ref: ${{ inputs.ksm_ref || '' }}
+      ksm_repo: ${{ inputs.ksm_repo || '' }}
+
+  # The same selection, one environment per variant instead of per scenario.
+  serial:
+    name: serial
+    needs: discover
+    if: needs.discover.outputs.scenarios != '[]' && needs.discover.outputs.run_mode == 'serial'
+    uses: ./.github/workflows/e2e-serial.yml
+    with:
+      scenarios: ${{ needs.discover.outputs.serial_scenarios }}
+      kcm_variants: ${{ needs.discover.outputs.serial_variants }}
       src_url: ${{ inputs.SRC_URL || '' }}
       oci_url: ${{ inputs.OCI_URL || '' }}
       ksm_ref: ${{ inputs.ksm_ref || '' }}

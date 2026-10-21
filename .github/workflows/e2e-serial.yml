@@ -1,0 +1,142 @@
+name: E2E serial
+
+# Reusable: one environment per KCM variant, every selected scenario run on it
+# in turn. The parallel counterpart is e2e-scenario.yml, which builds a cluster
+# per scenario instead -- cheap for a container, not for a provisioned cluster.
+#
+# The phase-1 steps repeat deploy_k0rdent.sh; test_ci_matches_entrypoints.sh
+# asserts the two lists stay in step.
+
+# See e2e.yml: a called workflow's github context describes the caller, so a
+# bare checkout clones the wrong repository.
+env:
+  SELF_REPO: ${{ inputs.ksm_repo || 'k0rdent/ksm-tests' }}
+
+on:
+  workflow_call:
+    inputs:
+      scenarios:
+        description: 'Scenario ids to run in order, space or comma separated'
+        type: string
+        required: true
+      kcm_variants:
+        description: 'JSON array of KCM variants, from the discover job'
+        type: string
+        required: true
+      src_url:
+        description: 'Override the KCM repository to build (source mode only)'
+        type: string
+        required: false
+        default: ''
+      oci_url:
+        description: 'Override the chart registry (release mode only)'
+        type: string
+        required: false
+        default: ''
+      ksm_ref:
+        description: 'The ref of THIS repository to run; empty when called from within it'
+        type: string
+        required: false
+        default: ''
+      ksm_repo:
+        description: 'The repository of THIS workflow; empty means k0rdent/ksm-tests'
+        type: string
+        required: false
+        default: ''
+
+# No concurrency group here on purpose: the caller's cancels these jobs too.
+
+jobs:
+  e2e:
+    name: serial (${{ matrix.kcm.name }})
+    runs-on: ubuntu-24.04
+    # Every scenario on one cluster, so the budget is the whole set, not one.
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        kcm: ${{ fromJson(inputs.kcm_variants) }}
+    env:
+      KCM: ${{ matrix.kcm.kcm }}
+      KCM_MODE: ${{ matrix.kcm.mode }}
+      SRC_URL: ${{ inputs.src_url }}
+      OCI_URL: ${{ inputs.oci_url || matrix.kcm.oci }}
+      SCENARIOS: ${{ inputs.scenarios }}
+      TEST_MODE: self
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.ksm_ref && env.SELF_REPO || github.repository }}
+          ref:        ${{ inputs.ksm_ref || github.ref }}
+
+      - name: Enable debug output
+        if: runner.debug == '1'
+        run: echo "DEBUG=true" >> "$GITHUB_ENV"
+
+      - name: Free disk space
+        if: matrix.kcm.mode == 'source'
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" || true
+          sudo apt-get clean
+          df -h /
+
+      - uses: actions/setup-go@v7
+        if: matrix.kcm.mode == 'source'
+        with:
+          go-version: 'stable'
+          cache: false
+
+      - name: '1) Build environment: Install dependencies'
+        run: ./scripts/steps/deps.sh
+
+      - name: '1) Build environment: Prepare KCM'
+        run: ./scripts/steps/prepare_kcm.sh
+
+      - name: '1) Build environment: Deploy local registry'
+        if: matrix.kcm.mode == 'source'
+        run: ./scripts/steps/deploy_registry.sh
+
+      - name: '1) Build environment: Start k0s cluster (Docker)'
+        run: ./scripts/steps/deploy_mgmt_cluster.sh
+
+      - name: '1) Build environment: Push images and charts'
+        if: matrix.kcm.mode == 'source'
+        run: ./scripts/steps/push_kcm_artifacts.sh
+
+      - name: '1) Build environment: Install KCM'
+        run: ./scripts/steps/deploy_kcm.sh
+
+      - name: '1) Build environment: Apply Release and templates'
+        run: ./scripts/steps/apply_release.sh
+
+      - name: '1) Build environment: Wait for templates'
+        run: ./scripts/steps/wait_for_templates.sh
+
+      - name: '1) Build environment: Apply Management object'
+        run: ./scripts/steps/apply_management.sh
+
+      - name: '1) Build environment: Wait for Management'
+        run: ./scripts/steps/wait_for_management.sh
+
+      # One step for phases 2 to 4: which of them a scenario exercises is the
+      # scenario's own business, and the runner prints a verdict per scenario.
+      - name: '2-4) Run the scenarios in order'
+        run: ./scripts/run_scenarios.sh
+
+      - name: Collect diagnostics
+        if: failure()
+        run: ./scripts/steps/collect_logs.sh
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-logs-${{ github.run_id }}-serial-${{ matrix.kcm.id }}
+          path: logs*/
+          retention-days: 7
+
+      - name: '4) Clean up: Remove k0s cluster'
+        if: always()
+        run: ./scripts/remove_k0rdent.sh
