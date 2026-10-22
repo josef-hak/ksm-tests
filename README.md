@@ -105,8 +105,9 @@ scripts/            the entry points below; everything you run by hand
   config/           KCM values, the Management object, the CI matrix
   tests/bash/       unit tests for the scripts, no cluster needed
 .github/workflows/  e2e.yml picks what to run, e2e-scenario.yml runs it --
-                    one environment per scenario. e2e-serial.yml is separate
-                    and manual: one environment, every scenario on it in turn
+                    one environment per scenario. e2e-serial.yml is separate:
+                    one environment, every scenario on it in turn, on a pull
+                    request here or by hand
 ```
 
 ## Running locally
