@@ -126,10 +126,67 @@ jobs:
         if: env.CLD_ADOPTED == 'true'
         run: ./scripts/steps/deploy_adopted_cluster.sh
 
-      # One step for phases 2 to 4: which of them a scenario exercises is the
-      # scenario's own business, and the runner prints a verdict per scenario.
-      - name: '2-4) Run the scenarios in order'
-        run: ./scripts/run_scenarios.sh
+      # One step per scenario, so the step list says which one failed without
+      # anyone opening a 2000-line log. Actions has no per-step matrix, so the
+      # set is written out; test_ci_matches_entrypoints.sh asserts it still
+      # matches test_scenarios/, because a missing step is silent coverage loss.
+      #
+      # Each runs through run_scenarios.sh rather than run_scenario.sh: that is
+      # what asserts the cluster is clean afterwards, and a failed step stops
+      # the job, so the fail-fast behaviour is the same either way.
+      - name: Select the scenarios
+        run: |
+          # Padded, so `contains` cannot match a prefix of a longer id.
+          list="${SCENARIOS//,/ }"
+          if [[ -z "${list// /}" ]]; then
+            for f in test_scenarios/*.yaml; do list+=" $(basename "$f" .yaml)"; done
+          fi
+          echo "SCENARIO_LIST= ${list# } " >> "$GITHUB_ENV"
+          echo "Running: ${list# }"
+
+      - name: '2-4) 101_basic'
+        if: contains(env.SCENARIO_LIST, ' 101_basic ')
+        run: SCENARIOS=101_basic ./scripts/run_scenarios.sh
+
+      - name: '2-4) 201_svcdep'
+        if: contains(env.SCENARIO_LIST, ' 201_svcdep ')
+        run: SCENARIOS=201_svcdep ./scripts/run_scenarios.sh
+
+      - name: '2-4) 202_svcdep_invalid'
+        if: contains(env.SCENARIO_LIST, ' 202_svcdep_invalid ')
+        run: SCENARIOS=202_svcdep_invalid ./scripts/run_scenarios.sh
+
+      - name: '2-4) 301_upgrade'
+        if: contains(env.SCENARIO_LIST, ' 301_upgrade ')
+        run: SCENARIOS=301_upgrade ./scripts/run_scenarios.sh
+
+      - name: '2-4) 302_upgrade_invalid_atomic'
+        if: contains(env.SCENARIO_LIST, ' 302_upgrade_invalid_atomic ')
+        run: SCENARIOS=302_upgrade_invalid_atomic ./scripts/run_scenarios.sh
+
+      - name: '2-4) 401_mcsdep_valid'
+        if: contains(env.SCENARIO_LIST, ' 401_mcsdep_valid ')
+        run: SCENARIOS=401_mcsdep_valid ./scripts/run_scenarios.sh
+
+      - name: '2-4) 402_mcsdep_invalid'
+        if: contains(env.SCENARIO_LIST, ' 402_mcsdep_invalid ')
+        run: SCENARIOS=402_mcsdep_invalid ./scripts/run_scenarios.sh
+
+      - name: '2-4) 501_no_chain'
+        if: contains(env.SCENARIO_LIST, ' 501_no_chain ')
+        run: SCENARIOS=501_no_chain ./scripts/run_scenarios.sh
+
+      - name: '2-4) 502_chain_boundary'
+        if: contains(env.SCENARIO_LIST, ' 502_chain_boundary ')
+        run: SCENARIOS=502_chain_boundary ./scripts/run_scenarios.sh
+
+      - name: '2-4) 503_direct_chain'
+        if: contains(env.SCENARIO_LIST, ' 503_direct_chain ')
+        run: SCENARIOS=503_direct_chain ./scripts/run_scenarios.sh
+
+      - name: '2-4) 504_stepwise_chain'
+        if: contains(env.SCENARIO_LIST, ' 504_stepwise_chain ')
+        run: SCENARIOS=504_stepwise_chain ./scripts/run_scenarios.sh
 
       # Before the diagnostics, so a cluster that refuses to detach is part of
       # what the run reports rather than something the teardown hides.

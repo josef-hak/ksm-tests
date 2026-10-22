@@ -46,4 +46,20 @@ assert_contains "and it really is the build" "$serial_ci" "wait_for_management.s
 assert_contains "the serial workflow runs the scenarios through run_scenarios.sh" \
     "$(cat "$SERIAL")" "run_scenarios.sh"
 
+# One step per scenario, written out because Actions has no per-step matrix. A
+# scenario added to test_scenarios/ and not here would be skipped in every
+# serial run, and a skipped step reads as coverage nobody is missing.
+serial_steps="$(grep -oE '^ +run: SCENARIOS=[a-z_0-9]+ ' "$SERIAL" \
+    | sed -E 's/.*SCENARIOS=//; s/ $//' | sort)"
+all_scenarios=""
+for f in "$REPO_ROOT"/test_scenarios/*.yaml; do all_scenarios+="$(basename "$f" .yaml)"$'\n'; done
+assert_eq "the serial workflow has a step for every scenario" \
+    "$(sort <<< "${all_scenarios%$'\n'}" | tr '\n' ' ')" "$(tr '\n' ' ' <<< "$serial_steps")"
+
+# Each of those steps has to be switchable, or the 'scenarios' input stops
+# selecting anything and every run is the full set.
+assert_eq "and each one is conditional on the input" \
+    "$(wc -l <<< "$serial_steps")" \
+    "$(grep -cE "^ +if: contains\(env\.SCENARIO_LIST, ' [a-z_0-9]+ '\)$" "$SERIAL")"
+
 finish
