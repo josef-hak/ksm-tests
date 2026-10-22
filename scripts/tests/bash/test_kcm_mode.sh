@@ -63,6 +63,15 @@ assert_contains "names the bad value" "$out" "yes"
 
 out=$(CLD_ADOPTED=true TEST_MODE=self bash -c "source '$SCRIPTS_DIR/lib/common.sh'" 2>&1)
 assert_eq "self with an adopted cluster is rejected" 1 "$?"
+
+# Either knob alone decides, so a caller that only knows TEST_MODE still gets
+# the mode it asked for. e2e-scenario.yml is exactly that caller.
+assert_eq "TEST_MODE=self alone turns the adopted cluster off" "self false" \
+    "$(env -u CLD_ADOPTED TEST_MODE=self bash -c \
+        "source '$SCRIPTS_DIR/lib/common.sh'; echo \"\$TEST_MODE \$CLD_ADOPTED\"")"
+assert_eq "TEST_MODE=adopted alone turns it on" "adopted true" \
+    "$(env -u CLD_ADOPTED TEST_MODE=adopted bash -c \
+        "source '$SCRIPTS_DIR/lib/common.sh'; echo \"\$TEST_MODE \$CLD_ADOPTED\"")"
 out=$(CLD_ADOPTED=false TEST_MODE=adopted bash -c "source '$SCRIPTS_DIR/lib/common.sh'" 2>&1)
 assert_eq "adopted without one is rejected" 1 "$?"
 

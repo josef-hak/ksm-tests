@@ -23,8 +23,12 @@ local_run="$(grep -hoE '^ *"\$SCRIPTS_DIR/steps/[a-z_0-9]+\.sh"' \
     "$SCRIPTS_DIR/deploy_k0rdent.sh" "$SCRIPTS_DIR/run_scenario.sh" \
     | tr -d '"' | strip)"
 
+# e2e-scenario.yml runs self-management only, where deploy_adopted_cluster.sh
+# is a no-op. The entry point carries it because it serves both modes, so it is
+# dropped from this side of the comparison -- and only this side: the serial
+# workflow below does run it, and is checked against the unfiltered list.
 assert_eq "CI runs the same scripts, in the same order, as the entry points" \
-    "$local_run" "$ci"
+    "$(grep -v '^deploy_adopted_cluster\.sh$' <<< "$local_run")" "$ci"
 
 # A guard on the guard: if the extraction ever matches nothing, the comparison
 # above passes trivially and stops protecting anything.

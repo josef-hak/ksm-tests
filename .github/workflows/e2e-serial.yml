@@ -1,82 +1,77 @@
 name: E2E serial
 
-# Reusable: one environment per KCM variant, every selected scenario run on it
-# in turn. The parallel counterpart is e2e-scenario.yml, which builds a cluster
-# per scenario instead -- cheap for a container, not for a provisioned cluster.
+# One environment, every selected scenario run on it in turn. The counterpart
+# is e2e.yml, which builds an environment per scenario -- cheap for a
+# container, not for a cluster that has to be provisioned.
+#
+# Standalone on purpose: manual only, one KCM per run, no diff-based selection
+# and no part in the pull-request checks. Nothing here is wired into e2e.yml.
 #
 # The phase-1 steps repeat deploy_k0rdent.sh; test_ci_matches_entrypoints.sh
 # asserts the two lists stay in step.
 
-# See e2e.yml: a called workflow's github context describes the caller, so a
-# bare checkout clones the wrong repository.
-env:
-  SELF_REPO: ${{ inputs.ksm_repo || 'k0rdent/ksm-tests' }}
-
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
+      KCM:
+        description: 'KCM version (chart version, branch, tag, sha)'
+        required: false
+        default: 1.12.0-rc.3
+      KCM_MODE:
+        description: 'KCM deployoment mode, options: source, release'
+        required: false
+        type: choice
+        options: [release, source]
+        default: release
+      SRC_URL:
+        description: 'KCM source git repository (kcm_mode: source)'
+        required: false
+        default: 'https://github.com/k0rdent/kcm.git'
+      OCI_URL:
+        description: 'KCM release oci url (kcm_mode: release)'
+        required: false
+        default: 'oci://ghcr.io/k0rdent/kcm/staging'
       scenarios:
-        description: 'Scenario ids to run in order, space or comma separated'
-        type: string
-        required: true
-      kcm_variants:
-        description: 'JSON array of KCM variants, from the discover job'
-        type: string
-        required: true
-      src_url:
-        description: 'Override the KCM repository to build (source mode only)'
-        type: string
+        description: '(empty = all), e.g. "101_basic, 201_svcdep"'
         required: false
         default: ''
-      oci_url:
-        description: 'Override the chart registry (release mode only)'
-        type: string
+      CLD_ADOPTED:
+        description: 'Adopt a second k0s cluster; false = self-management'
         required: false
-        default: ''
-      ksm_ref:
-        description: 'The ref of THIS repository to run; empty when called from within it'
-        type: string
-        required: false
-        default: ''
-      ksm_repo:
-        description: 'The repository of THIS workflow; empty means k0rdent/ksm-tests'
-        type: string
-        required: false
-        default: ''
+        type: choice
+        options: ['true', 'false']
+        default: 'true'
 
-# No concurrency group here on purpose: the caller's cancels these jobs too.
+# Keyed by what the run was asked to do, so two dispatches with different
+# inputs run side by side and only a repeat of the same one cancels its
+# predecessor.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}-${{ inputs.KCM }}-${{ inputs.KCM_MODE }}-${{ inputs.scenarios }}-${{ inputs.CLD_ADOPTED }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
-    name: serial (${{ matrix.kcm.name }})
+    # Quoted: an unquoted ': ' inside the name ends the YAML key.
+    name: 'serial (${{ inputs.KCM_MODE }}: ${{ inputs.KCM }})'
     runs-on: ubuntu-24.04
     # Every scenario on one cluster, so the budget is the whole set, not one.
     timeout-minutes: 300
-    strategy:
-      fail-fast: false
-      matrix:
-        kcm: ${{ fromJson(inputs.kcm_variants) }}
     env:
-      KCM: ${{ matrix.kcm.kcm }}
-      KCM_MODE: ${{ matrix.kcm.mode }}
-      SRC_URL: ${{ inputs.src_url }}
-      OCI_URL: ${{ inputs.oci_url || matrix.kcm.oci }}
+      KCM: ${{ inputs.KCM }}
+      KCM_MODE: ${{ inputs.KCM_MODE }}
+      SRC_URL: ${{ inputs.SRC_URL }}
+      OCI_URL: ${{ inputs.OCI_URL }}
       SCENARIOS: ${{ inputs.scenarios }}
-      # TEMPORARY: true, to exercise adopted mode in CI. TEST_MODE follows from
-      # it -- 'adopted' here, 'self' when this is false.
-      CLD_ADOPTED: 'true'
+      CLD_ADOPTED: ${{ inputs.CLD_ADOPTED }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          repository: ${{ inputs.ksm_ref && env.SELF_REPO || github.repository }}
-          ref:        ${{ inputs.ksm_ref || github.ref }}
 
       - name: Enable debug output
         if: runner.debug == '1'
         run: echo "DEBUG=true" >> "$GITHUB_ENV"
 
       - name: Free disk space
-        if: matrix.kcm.mode == 'source'
+        if: inputs.KCM_MODE == 'source'
         run: |
           df -h /
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
@@ -85,7 +80,7 @@ jobs:
           df -h /
 
       - uses: actions/setup-go@v7
-        if: matrix.kcm.mode == 'source'
+        if: inputs.KCM_MODE == 'source'
         with:
           go-version: 'stable'
           cache: false
@@ -97,14 +92,14 @@ jobs:
         run: ./scripts/steps/prepare_kcm.sh
 
       - name: '1) Build environment: Deploy local registry'
-        if: matrix.kcm.mode == 'source'
+        if: inputs.KCM_MODE == 'source'
         run: ./scripts/steps/deploy_registry.sh
 
       - name: '1) Build environment: Start k0s cluster (Docker)'
         run: ./scripts/steps/deploy_mgmt_cluster.sh
 
       - name: '1) Build environment: Push images and charts'
-        if: matrix.kcm.mode == 'source'
+        if: inputs.KCM_MODE == 'source'
         run: ./scripts/steps/push_kcm_artifacts.sh
 
       - name: '1) Build environment: Install KCM'
@@ -202,7 +197,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-logs-${{ github.run_id }}-serial-${{ matrix.kcm.id }}
+          name: e2e-logs-${{ github.run_id }}-serial
           path: logs*/
           retention-days: 7
 

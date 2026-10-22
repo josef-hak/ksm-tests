@@ -142,6 +142,16 @@ KCM_HELM_RELEASE_NAME="${KCM_HELM_RELEASE_NAME:-kcm}"
 # ClusterDeployment, instead of deploying the services into the cluster KCM
 # runs in. The services are then verified on a cluster that is genuinely
 # remote, which is what self-management cannot cover.
+#
+# The two knobs below describe one choice, so each follows the other and only
+# an explicitly conflicting pair is an error. A caller that says TEST_MODE=self
+# gets self-management without having to know this variable exists.
+if [[ -z "${CLD_ADOPTED:-}" && -n "${TEST_MODE:-}" ]]; then
+    case "$TEST_MODE" in
+        self)    CLD_ADOPTED=false ;;
+        adopted) CLD_ADOPTED=true ;;
+    esac
+fi
 CLD_ADOPTED="${CLD_ADOPTED:-true}"
 case "$CLD_ADOPTED" in
     true|false) ;;
