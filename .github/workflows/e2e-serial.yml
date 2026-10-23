@@ -158,6 +158,11 @@ jobs:
         if: runner.debug == '1'
         run: echo "DEBUG=true" >> "$GITHUB_ENV"
 
+      # First, before the environment is built: that takes about five minutes,
+      # and a missing secret found afterwards has wasted all of it.
+      - name: Check the provider credentials
+        run: ./scripts/steps/check_provider_creds.sh
+
       - name: Free disk space
         if: env.KCM_MODE == 'source'
         run: |

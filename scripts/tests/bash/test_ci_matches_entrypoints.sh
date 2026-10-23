@@ -24,11 +24,13 @@ local_run="$(grep -hoE '^ *"\$SCRIPTS_DIR/steps/[a-z_0-9]+\.sh"' \
     | tr -d '"' | strip)"
 
 # e2e-scenario.yml runs self and adopted, never a provisioned cluster, so
-# deploy_cloud_cluster.sh is not part of its pipeline. The entry point carries
-# it because it serves every mode -- and only this side is filtered: the serial
-# workflow below does run it, and is checked against the unfiltered list.
+# neither the credential check nor the provisioning is part of its pipeline.
+# The entry point carries both because it serves every mode -- and only this
+# side is filtered: the serial workflow below does run them, and is checked
+# against the unfiltered list.
+CLOUD_ONLY='check_provider_creds|deploy_cloud_cluster'
 assert_eq "CI runs the same scripts, in the same order, as the entry points" \
-    "$(grep -v '^deploy_cloud_cluster\.sh$' <<< "$local_run")" "$ci"
+    "$(grep -vE "^($CLOUD_ONLY)\.sh$" <<< "$local_run")" "$ci"
 
 # A guard on the guard: if the extraction ever matches nothing, the comparison
 # above passes trivially and stops protecting anything.

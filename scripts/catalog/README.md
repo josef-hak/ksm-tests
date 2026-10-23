@@ -7,6 +7,7 @@ copy, not a merge.
 
 | here | catalog |
 |---|---|
+| `check_test_mode.sh` | `scripts/check_test_mode.sh` |
 | `check_aws_creds.sh` | `scripts/check_aws_creds.sh` |
 | `check_azure_creds.sh` | `scripts/check_azure_creds.sh` |
 | `check_gcp_creds.sh` | `scripts/check_gcp_creds.sh` |
@@ -21,7 +22,12 @@ the same way.
 
 They expect to be run from the repository root with `KUBECONFIG` already pointing
 at the management cluster, and they read `TEST_MODE` and the provider variables
-from the environment. `scripts/steps/deploy_cloud_cluster.sh` is what calls them.
+from the environment. `scripts/steps/check_provider_creds.sh` and
+`scripts/steps/deploy_cloud_cluster.sh` are what call them.
+
+`check_test_mode.sh` only knows catalog's modes — `aws`, `azure`, `gcp`,
+`adopted` — so it is called for the provider modes alone; `self` is ours and
+needs no credentials anyway.
 
 What was **not** copied, and why:
 

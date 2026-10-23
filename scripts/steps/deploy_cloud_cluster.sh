@@ -25,12 +25,10 @@ ensure_workdir
 export KUBECONFIG="$KUBECONFIG_MGMT"
 require_cluster
 
-# Before anything is provisioned: with bad credentials k0rdent still creates
-# the ClusterDeployment, the provider cannot reach the API, and the cluster can
-# no longer be deleted either -- its finalizers wait on calls that never
-# succeed. Catalog learnt this the expensive way; the check is theirs.
-step "Checking the $TEST_MODE credentials"
-"$SCRIPTS_DIR/catalog/check_${TEST_MODE}_creds.sh"
+# CI has already run this as its first step, so the credentials are known good
+# by now. Kept because a local run comes straight here, and because it is
+# cheap next to what follows.
+"$SCRIPTS_DIR/steps/check_provider_creds.sh"
 
 step "Installing the $TEST_MODE Credential"
 "$SCRIPTS_DIR/catalog/setup_provider_credential.sh"

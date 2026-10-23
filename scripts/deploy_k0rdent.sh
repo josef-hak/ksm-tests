@@ -31,6 +31,10 @@ trap 'rc=$?; (( rc == 0 )) || { warn "Failed after $(( (SECONDS - START) / 60 ))
 
 log "KCM=$KCM ($KCM_MODE), cluster $MGMT_CLUSTER_NAME"
 
+# First, and a no-op unless TEST_MODE names a provider: the environment below
+# takes about five minutes, and a credential that does not work is worth
+# finding out before spending it.
+"$SCRIPTS_DIR/steps/check_provider_creds.sh"
 "$SCRIPTS_DIR/steps/deps.sh"
 "$SCRIPTS_DIR/steps/prepare_kcm.sh"
 
