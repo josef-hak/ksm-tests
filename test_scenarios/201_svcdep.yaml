@@ -21,12 +21,18 @@ services:
     repo: oci://ghcr.io/k0rdent/catalog/charts
     namespace: cert-manager
     waitForPods: cert-manager-
+    # A cluster of its own has no cert-manager, so this copy has to bring the
+    # CRDs: kserve-resources renders a Certificate and an Issuer, and without
+    # them its release never installs.
     values: |
       cert-manager:
-        # KCM runs its own cert-manager in this management cluster and its helm
-        # release owns the CRDs, so this copy must not install them and needs
-        # names of its own. Under self-management there is nowhere else to put
-        # it.
+        crds:
+          enabled: true
+    # Under self-management KCM runs its own cert-manager in this very cluster
+    # and its helm release owns the CRDs, so this copy must not install them
+    # and needs names of its own.
+    valuesTestModeSelf: |
+      cert-manager:
         crds:
           enabled: false
         fullnameOverride: scenario-cert-manager

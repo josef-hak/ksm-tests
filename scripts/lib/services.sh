@@ -81,8 +81,20 @@ all_service_namespaces() {
     all_services_rows | cut -d'|' -f5 | awk 'NF && !seen[$0]++'
 }
 
-# service_values NAME -- the values block for one service, empty if it has none.
+# service_values NAME -- the values block for one service, empty if it has none,
+# preferring valuesTestModeSelf under self-management. values is what a real
+# cluster gets, in every mode there will ever be; the exception is the cluster
+# KCM runs in, where a chart must not fight KCM's own releases over CRDs or
+# object names. Keeping that workaround out of values means a mode added later
+# inherits the real thing rather than the exception.
 service_values() {
+    local v
+    if [[ "$TEST_MODE" == "self" ]]; then
+        v="$(NAME="$1" yq -r \
+            "$(mcs_root).services[] | select(.name == strenv(NAME)) | .valuesTestModeSelf // \"\"" \
+            "$SERVICES_FILE")"
+        [[ -n "$v" ]] && { echo "$v"; return; }
+    fi
     NAME="$1" yq -r "$(mcs_root).services[] | select(.name == strenv(NAME)) | .values // \"\"" "$SERVICES_FILE"
 }
 
@@ -167,6 +179,13 @@ effective_version() {
 effective_values() {
     local v
     if [[ "${2:-}" == "upgraded" ]]; then
+        # valuesTestModeSelf wins here for the same reason it does in
+        # service_values: an override replaces, so it carries the
+        # self-management workaround with it or loses it.
+        if [[ "$TEST_MODE" == "self" ]]; then
+            v="$(upgrade_field "$1" valuesTestModeSelf)"
+            [[ -n "$v" ]] && { echo "$v"; return; }
+        fi
         v="$(upgrade_field "$1" values)"
         [[ -n "$v" ]] && { echo "$v"; return; }
     fi
@@ -333,17 +352,31 @@ EOF
         echo "    - $(mcs_object_name "$(mcs_index_of "$dep")")" >> "$out"
     done < <(mcs_depends_on "${MCS_IDX:-0}")
 
-    # provider before services, and both after dependsOn: dependsOn sits on the
-    # MCS itself, one level above serviceSpec.
+    # clusterSelector sits on the MCS itself, like dependsOn, and matches
+    # ClusterDeployment labels. Under self-management there is no
+    # ClusterDeployment to match, so the provider carries the target instead.
+    if [[ "$TEST_MODE" == "adopted" ]]; then
+        cat >> "$out" <<EOF
+  clusterSelector:
+    matchLabels:
+      $ADOPTED_LABEL_KEY: $ADOPTED_LABEL_VALUE
+EOF
+    fi
+
+    # provider before services, and both after dependsOn and clusterSelector.
     cat >> "$out" <<EOF
   serviceSpec:
     provider:
       name: $KSM_PROVIDER
+EOF
+    if [[ "$TEST_MODE" != "adopted" ]]; then
+        cat >> "$out" <<EOF
       # KCM deploys into the cluster it runs in, so there is no
       # ClusterDeployment to select and no second cluster to reach.
       selfManagement: true
-    services:
 EOF
+    fi
+    echo "    services:" >> "$out"
 
     local name chart version _repo namespace dep _wait values
     while IFS="$SERVICE_SEP" read -r name chart version _repo namespace dep _wait; do

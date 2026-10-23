@@ -33,6 +33,18 @@ out=$(SCENARIO=nope bash -c "unset SERVICES_FILE; source '$SCRIPTS_DIR/lib/commo
 assert_eq "an unknown scenario is rejected" 1 "$?"
 assert_contains "lists the available scenarios" "$out" "201_svcdep"
 
+# A scenario pinned to one mode has to refuse the other: CI reads testMode
+# when it picks the jobs, but a local environment is built before anyone looks
+# at the scenario file, so nothing else would notice the mismatch.
+pinned="$(mktemp --suffix=.yaml)"
+printf 'name: pinned\ntestMode: adopted\nservices: []\n' > "$pinned"
+out=$(SERVICES_FILE="$pinned" bash -c "source '$SCRIPTS_DIR/lib/common.sh'; check_scenario" 2>&1)
+assert_eq "a scenario pinned to adopted is refused in self mode" 1 "$?"
+assert_contains "and says which mode it needs" "$out" "TEST_MODE=adopted"
+SERVICES_FILE="$pinned" TEST_MODE=adopted bash -c \
+    "source '$SCRIPTS_DIR/lib/common.sh'; check_scenario" >/dev/null 2>&1
+assert_eq "and accepted in that one" 0 "$?"
+
 # Underscores are legal in a filename but not in a Kubernetes object name, and
 # the scenario reaches MCS_NAME.
 slug="$(SCENARIO=201_svcdep bash -c "source '$SCRIPTS_DIR/lib/common.sh'; echo \$SCENARIO_SLUG")"
@@ -103,6 +115,17 @@ assert_contains "cert-manager values are nested under the chart name" \
     "$(service_values cert-manager)" "cert-manager:"
 assert_contains "kserve values are nested under the chart name" \
     "$(service_values kserve-resources)" "kserve-resources:"
+
+# valuesTestModeSelf replaces values outright under self-management -- not
+# merged, so the block has to be read whole and only for the service that
+# declares one. values is what every other mode gets, now and later.
+assert_contains "self mode takes valuesTestModeSelf" \
+    "$(TEST_MODE=self service_values cert-manager)" "enabled: false"
+assert_contains "and adopted mode takes the plain values" \
+    "$(TEST_MODE=adopted service_values cert-manager)" "enabled: true"
+assert_eq "a service without one keeps its values" \
+    "$(TEST_MODE=adopted service_values kserve-resources)" \
+    "$(TEST_MODE=self service_values kserve-resources)"
 
 # ── 202_svcdep_invalid: the expect block ────────────────────────────────────────
 SERVICES_FILE="$SCENARIOS_DIR/101_basic.yaml"
@@ -184,6 +207,21 @@ assert_eq "the upgraded MCS pins the new one" "cert-manager-1-21-1" \
 assert_eq "untouched services keep their template" "traefik-41-2-0" \
     "$(yq -r '.spec.serviceSpec.services[] | select(.name=="traefik") | .template' "$after")"
 
+# How the MCS finds the cluster, which is the whole difference between the two
+# modes. Both have to be rendered here: a selector with selfManagement still
+# set would deploy to the management cluster as well as the adopted one.
+adopted_mcs="$(mktemp)"; TEST_MODE=adopted render_mcs "$adopted_mcs" initial
+assert_eq "adopted mode selects the ClusterDeployment by label" "adopted" \
+    "$(yq -r ".spec.clusterSelector.matchLabels.$ADOPTED_LABEL_KEY" "$adopted_mcs")"
+assert_eq "and does not ask for self-management" "null" \
+    "$(yq -r '.spec.serviceSpec.provider.selfManagement' "$adopted_mcs")"
+
+self_mcs="$(mktemp)"; TEST_MODE=self render_mcs "$self_mcs" initial
+assert_eq "self mode asks for self-management" "true" \
+    "$(yq -r '.spec.serviceSpec.provider.selfManagement' "$self_mcs")"
+assert_eq "and selects nothing" "null" \
+    "$(yq -r '.spec.clusterSelector' "$self_mcs")"
+
 SERVICES_FILE="$SCENARIOS_DIR/302_upgrade_invalid_atomic.yaml"
 assert_eq "the atomic scenario sets atomic" "true" \
     "$(scenario_helm_options 0 | yq -r '.atomic')"
@@ -207,6 +245,15 @@ assert_contains "the override repeats what must survive" \
     "$(effective_values cert-manager upgraded)" "crds:"
 assert_not_contains "the initial values are not invalid" \
     "$(effective_values cert-manager initial)" "replicaCount"
+# The self-management override replaces the whole block as well, so it has to
+# carry the invalid value too -- without it the upgrade would succeed and the
+# scenario would assert a rollback that never happened.
+assert_contains "the self-management override still breaks the upgrade" \
+    "$(TEST_MODE=self effective_values cert-manager upgraded)" "replicaCount: -1"
+assert_contains "and keeps the CRDs out of KCM's way" \
+    "$(TEST_MODE=self effective_values cert-manager upgraded)" "enabled: false"
+assert_contains "while every other mode installs them" \
+    "$(TEST_MODE=adopted effective_values cert-manager upgraded)" "enabled: true"
 
 render_mcs "$after" upgraded
 assert_eq "atomic reaches every service in the MCS" "true" \
