@@ -10,7 +10,7 @@ WORKFLOW="$REPO_ROOT/.github/workflows/e2e-scenario.yml"
 
 # Teardown and diagnostics are the job's own business, not part of the
 # pipeline: CI runs them on failure and cleanup, the entry points in a trap.
-NOT_PIPELINE='collect_logs|remove_k0rdent|remove_adopted_cluster'
+NOT_PIPELINE='collect_logs|remove_k0rdent|remove_adopted_cluster|remove_cloud_cluster'
 
 strip() { sed -E 's#.*/##' | grep -vE "^($NOT_PIPELINE)\.sh$"; }
 
@@ -23,8 +23,12 @@ local_run="$(grep -hoE '^ *"\$SCRIPTS_DIR/steps/[a-z_0-9]+\.sh"' \
     "$SCRIPTS_DIR/deploy_k0rdent.sh" "$SCRIPTS_DIR/run_scenario.sh" \
     | tr -d '"' | strip)"
 
+# e2e-scenario.yml runs self and adopted, never a provisioned cluster, so
+# deploy_cloud_cluster.sh is not part of its pipeline. The entry point carries
+# it because it serves every mode -- and only this side is filtered: the serial
+# workflow below does run it, and is checked against the unfiltered list.
 assert_eq "CI runs the same scripts, in the same order, as the entry points" \
-    "$local_run" "$ci"
+    "$(grep -v '^deploy_cloud_cluster\.sh$' <<< "$local_run")" "$ci"
 
 # A guard on the guard: if the extraction ever matches nothing, the comparison
 # above passes trivially and stops protecting anything.

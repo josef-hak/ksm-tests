@@ -53,6 +53,8 @@ fi
 # A no-op unless TEST_MODE is adopted. Last: it needs the adopted-cluster
 # ClusterTemplate, which only goes valid once the Management exists.
 "$SCRIPTS_DIR/steps/deploy_adopted_cluster.sh"
+# The same for a provisioned one: a no-op unless TEST_MODE names a provider.
+"$SCRIPTS_DIR/steps/deploy_cloud_cluster.sh"
 
 ok "k0rdent $KCM is up in $(( (SECONDS - START) / 60 ))m$(( (SECONDS - START) % 60 ))s"
 log "export KUBECONFIG=${KUBECONFIG_MGMT#"$PROJECT_ROOT"/}"

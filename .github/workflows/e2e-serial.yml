@@ -162,6 +162,10 @@ jobs:
         if: env.TEST_MODE == 'adopted'
         run: ./scripts/steps/deploy_adopted_cluster.sh
 
+      - name: '1) Build environment: Provision the cluster'
+        if: contains('aws azure gcp', env.TEST_MODE)
+        run: ./scripts/steps/deploy_cloud_cluster.sh
+
       # One step per scenario, so the step list says which one failed without
       # anyone opening a 2000-line log. Actions has no per-step matrix, so the
       # set is written out; test_ci_matches_entrypoints.sh asserts it still
@@ -237,10 +241,16 @@ jobs:
         if: contains(env.SCENARIO_LIST, ' 504_stepwise_chain ')
         run: SCENARIOS=504_stepwise_chain ./scripts/run_scenarios.sh
 
-      # Before the diagnostics, so a cluster that refuses to detach is part of
-      # what the run reports rather than something the teardown hides.
+      # always(), and before the diagnostics: a scenario that fails stops the
+      # steps after it, and for a provisioned cluster that would mean leaving
+      # it running at the provider. A cluster that refuses to go is also part
+      # of what the run reports rather than something the teardown hides.
+      - name: '4) Clean up: Remove the provisioned cluster'
+        if: always() && contains('aws azure gcp', env.TEST_MODE)
+        run: ./scripts/steps/remove_cloud_cluster.sh
+
       - name: '4) Clean up: Remove adopted ClusterDeployment'
-        if: env.TEST_MODE == 'adopted'
+        if: always() && env.TEST_MODE == 'adopted'
         run: ./scripts/steps/remove_adopted_cluster.sh
 
       - name: Collect diagnostics
