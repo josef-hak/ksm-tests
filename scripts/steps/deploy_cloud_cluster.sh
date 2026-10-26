@@ -31,7 +31,7 @@ require_cluster
 "$SCRIPTS_DIR/steps/check_provider_creds.sh"
 
 step "Installing the $TEST_MODE Credential"
-"$SCRIPTS_DIR/catalog/setup_provider_credential.sh"
+catalog_run setup_provider_credential.sh
 
 # The ClusterTemplate names carry a version that moves with every k0rdent
 # release, so they are read back from the cluster rather than pinned.

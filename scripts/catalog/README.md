@@ -20,10 +20,20 @@ copy, not a merge.
 `scripts/config/{aws,azure,gcp}-cld.yaml` come from catalog's `scripts/config/`
 the same way.
 
-They expect to be run from the repository root with `KUBECONFIG` already pointing
-at the management cluster, and they read `TEST_MODE` and the provider variables
-from the environment. `scripts/steps/check_provider_creds.sh` and
-`scripts/steps/deploy_cloud_cluster.sh` are what call them.
+They read `TEST_MODE` and the provider variables from the environment, and they
+call each other the way they do in catalog: as `./scripts/<name>.sh` from the
+repository root. That path has to keep working, or the copies would need
+editing and every resync would become a merge — so there is a `scripts -> .`
+symlink in this directory and they are run **from here**:
+
+```bash
+(cd scripts/catalog && TEST_MODE=aws ./list_cld_resources_aws.sh)
+```
+
+`catalog_run` in `scripts/lib/common.sh` is that one line, and
+`scripts/steps/check_provider_creds.sh` and `scripts/steps/deploy_cloud_cluster.sh`
+use it. Calling one of these by its full path from the repository root works
+only for the ones that have no siblings to call.
 
 `check_test_mode.sh` only knows catalog's modes — `aws`, `azure`, `gcp`,
 `adopted` — so it is called for the provider modes alone; `self` is ours and

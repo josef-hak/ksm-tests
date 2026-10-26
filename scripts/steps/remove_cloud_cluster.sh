@@ -17,7 +17,8 @@ fi
 
 if [[ ! -f "$KUBECONFIG_MGMT" ]]; then
     warn "No management kubeconfig at $KUBECONFIG_MGMT -- cannot remove '$CLD_NAME'"
-    warn "Check the provider for leftovers: scripts/catalog/list_cld_resources_$TEST_MODE.sh"
+    warn "Check the provider for leftovers:"
+    warn "  (cd scripts/catalog && TEST_MODE=$TEST_MODE ./list_cld_resources_$TEST_MODE.sh)"
     exit 0
 fi
 export KUBECONFIG="$KUBECONFIG_MGMT"
@@ -32,7 +33,9 @@ if resource_exists ClusterDeployment "$CLD_NAME" "$NAMESPACE"; then
         { kube get clusterdeployment "$CLD_NAME" -n "$NAMESPACE" -o yaml
           kcm_errors 20m; } >&2
         warn "'$CLD_NAME' did not go away. Resources are most likely still running:"
-        warn "  TEST_MODE=$TEST_MODE ./scripts/catalog/list_cld_resources_$TEST_MODE.sh"
+        # From its own directory: these call each other as ./scripts/<name>.sh,
+        # which only resolves there. See catalog_run in lib/common.sh.
+        warn "  (cd scripts/catalog && TEST_MODE=$TEST_MODE ./list_cld_resources_$TEST_MODE.sh)"
         # Loud and non-zero: this is the one failure in a teardown that must
         # not be shrugged off, because it costs money until someone looks.
         exit 1

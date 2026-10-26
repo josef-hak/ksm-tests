@@ -27,7 +27,7 @@ fi
 # catalog's -- see scripts/catalog/README.md. -x reports every missing one at
 # once instead of dying on the first unbound variable.
 step "Checking the $TEST_MODE credentials"
-"$SCRIPTS_DIR/catalog/check_test_mode.sh" -x
-"$SCRIPTS_DIR/catalog/check_${TEST_MODE}_creds.sh"
+catalog_run check_test_mode.sh -x
+catalog_run "check_${TEST_MODE}_creds.sh"
 
 ok "The $TEST_MODE credentials work"
