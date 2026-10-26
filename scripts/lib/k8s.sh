@@ -87,12 +87,19 @@ condition_status() {
     kube "${args[@]}" 2>/dev/null || true
 }
 
-# wait_for_condition KIND NAME NAMESPACE TYPE TIMEOUT_SECONDS [POLL_SECONDS]
+# wait_for_condition KIND NAME NAMESPACE TYPE TIMEOUT_SECONDS [POLL_SECONDS] [CMD...]
+#
+# CMD, when given, is run on every poll and its output printed, instead of the
+# terse line every 30s. For a wait where the object's own row says more than
+# "not yet" -- a cluster being provisioned reports how far it has got, and
+# fifteen silent minutes look the same as a hang.
 #
 # Polls until the condition reports True. On timeout it dumps the object's
 # conditions -- that dump is usually the whole diagnosis, so keep it.
 wait_for_condition() {
     local kind="$1" name="$2" ns="$3" type="$4" timeout="$5" poll="${6:-5}"
+    shift 6 2>/dev/null || shift $#
+    local progress=("$@")
     local elapsed=0 status=""
 
     log "Waiting for $kind/$name condition $type=True (timeout ${timeout}s)"
@@ -102,7 +109,9 @@ wait_for_condition() {
             ok "$kind/$name is $type"
             return 0
         fi
-        if (( elapsed % 30 == 0 )); then
+        if (( ${#progress[@]} )); then
+            "${progress[@]}" 2>/dev/null || true
+        elif (( elapsed % 30 == 0 )); then
             log "⏳ $kind/$name $type='${status:-<none>}' (${elapsed}s elapsed)"
         fi
         sleep "$poll"

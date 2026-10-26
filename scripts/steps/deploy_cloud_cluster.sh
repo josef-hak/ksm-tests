@@ -82,8 +82,12 @@ cat "$MANIFEST"
 kube apply -n "$NAMESPACE" -f "$MANIFEST"
 
 step "Waiting for '$CLD_NAME' to be provisioned"
-# Minutes, not seconds: a cloud control plane takes its time.
-if ! wait_for_condition ClusterDeployment "$CLD_NAME" "$NAMESPACE" Ready "$CLUSTER_TIMEOUT"; then
+# Minutes, not seconds: a cloud control plane takes its time. The object's own
+# row is printed each poll rather than a tick every 30s -- its MESSAGES column
+# is the progress ("InfrastructureReady: 0 of 8 completed"), and without it a
+# quarter of an hour of silence is indistinguishable from a hang.
+if ! wait_for_condition ClusterDeployment "$CLD_NAME" "$NAMESPACE" Ready "$CLUSTER_TIMEOUT" 5 \
+     kube get clusterdeployment "$CLD_NAME" -n "$NAMESPACE" --no-headers; then
     { kube get clusterdeployment "$CLD_NAME" -n "$NAMESPACE" -o yaml
       kcm_errors 20m; } >&2
     die "ClusterDeployment '$CLD_NAME' never became Ready"
