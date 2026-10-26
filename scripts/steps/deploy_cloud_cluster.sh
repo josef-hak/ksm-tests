@@ -72,10 +72,17 @@ sed -e "s/CLD_NAME/${CLD_NAME}/g" \
     -e "s/CT_GCP_STANDALONE_CP/${CT_GCP_STANDALONE_CP:-}/g" \
     "$CLD_FILE" > "$MANIFEST"
 
-# The label the MultiClusterService selects on. Catalog's files carry
-# type/group labels for its own demos; ours has to be the one render_mcs asks
-# for, and adding it here keeps their file copyable unedited.
-yq -i ".metadata.labels.\"$CLD_LABEL_KEY\" = \"$CLD_LABEL_VALUE\"" "$MANIFEST"
+# The name and the label, set rather than substituted. Catalog's files do not
+# agree on how the name gets in -- aws-cld.yaml has a CLD_NAME placeholder,
+# azure and gcp spell it `<provider>-example-USER` -- and a sed that misses one
+# leaves a cluster named something nobody waits for or deletes: a 40-minute
+# timeout followed by a teardown that removes nothing, with the real cluster
+# still running. Setting the field works whatever the file says.
+#
+# The label is what render_mcs selects on; catalog's own type/group labels are
+# for its demos and are left alone.
+yq -i ".metadata.name = \"$CLD_NAME\" |
+       .metadata.labels.\"$CLD_LABEL_KEY\" = \"$CLD_LABEL_VALUE\"" "$MANIFEST"
 
 step "Creating the ClusterDeployment '$CLD_NAME'"
 cat "$MANIFEST"

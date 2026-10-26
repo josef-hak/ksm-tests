@@ -33,4 +33,28 @@ out="$(cd "$REPO_ROOT" && env -u AWS_ACCESS_KEY_ID TEST_MODE=aws \
 assert_not_contains "a sibling call resolves at runtime" "$out" "No such file"
 assert_contains "and reaches the check it was calling" "$out" "AWS_ACCESS_KEY_ID"
 
+# The ClusterDeployment files are catalog's too, and they do not agree on how
+# the cluster gets its name: aws-cld.yaml has a CLD_NAME placeholder, azure and
+# gcp spell it `<provider>-example-USER`. metadata.name is therefore set rather
+# than substituted -- but every *other* placeholder still has to be in the sed
+# in deploy_cloud_cluster.sh, or it reaches the cluster verbatim.
+DEPLOY="$SCRIPTS_DIR/steps/deploy_cloud_cluster.sh"
+substituted="$(grep -oE 's/[A-Z][A-Z0-9_]+/' "$DEPLOY" | sed -E 's#^s/##; s#/$##' | sort -u)"
+assert_not_eq "the substitution list was found" "" "$substituted"
+
+clds=("$SCRIPTS_DIR"/config/*-cld.yaml)
+# A guard on the guard: with no files the loop below checks nothing and passes.
+assert_eq "the ClusterDeployment files were found" "3" "${#clds[@]}"
+
+unhandled=""
+for f in "${clds[@]}"; do
+    # Without metadata.name: that line is overwritten wholesale.
+    while read -r token; do
+        [[ -n "$token" ]] || continue
+        grep -qx "$token" <<< "$substituted" || unhandled+="$(basename "$f"):$token "
+    done < <(grep -v '^  name:' "$f" | grep -oE '\b[A-Z][A-Z0-9_]{3,}\b' | sort -u)
+done
+
+assert_eq "every placeholder in a cld.yaml is substituted" "" "$unhandled"
+
 finish
