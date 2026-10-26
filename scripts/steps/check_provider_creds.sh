@@ -27,7 +27,10 @@ fi
 # catalog's -- see scripts/catalog/README.md. -x reports every missing one at
 # once instead of dying on the first unbound variable.
 step "Checking the $TEST_MODE credentials"
-catalog_run check_test_mode.sh -x
-catalog_run "check_${TEST_MODE}_creds.sh"
+# From the repository root: these are catalog's, and they call each other as
+# ./scripts/<name>.sh. See scripts/CATALOG.md.
+cd "$PROJECT_ROOT"
+./scripts/check_test_mode.sh -x
+"./scripts/check_${TEST_MODE}_creds.sh"
 
 ok "The $TEST_MODE credentials work"

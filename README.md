@@ -67,7 +67,7 @@ provider. Same shape as adopted from the scenarios' point of view — a
 credentials, so it is never part of a pull request. The ClusterDeployment
 definitions, the credential charts and the checks that refuse to provision on
 bad credentials are taken from [k0rdent/catalog](https://github.com/k0rdent/catalog);
-see [`scripts/catalog/`](scripts/catalog/README.md) for what was copied and
+see [`scripts/CATALOG.md`](scripts/CATALOG.md) for what was copied and
 what was not.
 
 | mode | needs |
@@ -113,7 +113,8 @@ sits on them. Cloud provisioning is out of scope.
 
 ```
 test_scenarios/     one YAML per scenario -- the whole test definition
-scripts/            the entry points below; everything you run by hand
+scripts/            the entry points below, plus the provider helpers copied
+                    from catalog -- see CATALOG.md
   steps/            one script per pipeline step, 1:1 with the steps in CI
   utils/            subroutines the steps call; never run directly
   lib/              shared helpers; services.sh reads the scenario files

@@ -166,16 +166,6 @@ is_cloud_mode() {
     [[ "$TEST_MODE" == "aws" || "$TEST_MODE" == "azure" || "$TEST_MODE" == "gcp" ]]
 }
 
-# catalog_run SCRIPT [ARG...] -- run one of the scripts copied from
-# k0rdent/catalog. From its own directory, because they call each other the way
-# they do in catalog, as ./scripts/<name>.sh from the repository root: there is
-# a `scripts -> .` symlink next to them so that path resolves here too. The
-# alternative was editing the copies, which would make every resync a merge.
-catalog_run() {
-    local script="$1"; shift
-    ( cd "$SCRIPTS_DIR/catalog" && "./$script" "$@" )
-}
-
 # The scenario scripts read this one, and only this one. deploy_k0rdent.sh
 # writes the cluster's kubeconfig to both names, so switching environments is
 # a matter of pointing kcfg_k0rdent at another kcfg_k0rdent_<KCM>.

@@ -31,12 +31,14 @@ require_cluster
 "$SCRIPTS_DIR/steps/check_provider_creds.sh"
 
 step "Installing the $TEST_MODE Credential"
-catalog_run setup_provider_credential.sh
+# From the repository root, like everything catalog's: they call each other as
+# ./scripts/<name>.sh. See scripts/CATALOG.md.
+( cd "$PROJECT_ROOT" && ./scripts/setup_provider_credential.sh )
 
 # The ClusterTemplate names carry a version that moves with every k0rdent
 # release, so they are read back from the cluster rather than pinned.
 # shellcheck source=/dev/null
-source "$SCRIPTS_DIR/catalog/export_cluster_template_names.sh"
+source "$SCRIPTS_DIR/export_cluster_template_names.sh"
 
 CLD_FILE="$CONFIG_DIR/$TEST_MODE-cld.yaml"
 [[ -f "$CLD_FILE" ]] || die "No ClusterDeployment template at $CLD_FILE"
