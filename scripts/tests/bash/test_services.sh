@@ -216,14 +216,21 @@ assert_eq "the upgraded MCS pins the new one" "cert-manager-1-21-1" \
 assert_eq "untouched services keep their template" "traefik-41-2-0" \
     "$(yq -r '.spec.serviceSpec.services[] | select(.name=="traefik") | .template' "$after")"
 
-# How the MCS finds the cluster, which is the whole difference between the two
-# modes. Both have to be rendered here: a selector with selfManagement still
-# set would deploy to the management cluster as well as the adopted one.
-adopted_mcs="$(mktemp)"; TEST_MODE=adopted render_mcs "$adopted_mcs" initial
-assert_eq "adopted mode selects the ClusterDeployment by label" "adopted" \
-    "$(yq -r ".spec.clusterSelector.matchLabels.$ADOPTED_LABEL_KEY" "$adopted_mcs")"
-assert_eq "and does not ask for self-management" "null" \
-    "$(yq -r '.spec.serviceSpec.provider.selfManagement' "$adopted_mcs")"
+# How the MCS finds the cluster, which is the whole difference between the
+# modes. Every one that has a ClusterDeployment selects it by label, and the
+# label says which kind it is; only self has nothing to select and asks the
+# provider for self-management instead. Rendering just one of them would miss
+# the pairing: a selector with selfManagement still set deploys to the
+# management cluster as well, and a provider mode with no selector deploys
+# there instead of to the cluster it just paid for.
+for mode in adopted aws azure gcp; do
+    mcs="$(mktemp)"
+    TEST_MODE="$mode" CLD_LABEL_VALUE="$mode" render_mcs "$mcs" initial
+    assert_eq "$mode selects its own ClusterDeployment by label" "$mode" \
+        "$(yq -r ".spec.clusterSelector.matchLabels.$CLD_LABEL_KEY" "$mcs")"
+    assert_eq "$mode does not ask for self-management" "null" \
+        "$(yq -r '.spec.serviceSpec.provider.selfManagement' "$mcs")"
+done
 
 self_mcs="$(mktemp)"; TEST_MODE=self render_mcs "$self_mcs" initial
 assert_eq "self mode asks for self-management" "true" \

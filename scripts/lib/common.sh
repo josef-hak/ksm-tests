@@ -177,15 +177,17 @@ ADOPTED_CLUSTER_NAME="${ADOPTED_CLUSTER_NAME:-adopted-$KCM}"
 ADOPTED_API_PORT="${ADOPTED_API_PORT:-6444}"
 KUBECONFIG_ADOPTED="${KUBECONFIG_ADOPTED:-$PROJECT_ROOT/kcfg_adopted_$KCM}"
 # What the MultiClusterService selects on. The label sits on the
-# ClusterDeployment: that is what MCS.spec.clusterSelector matches.
-ADOPTED_LABEL_KEY="${ADOPTED_LABEL_KEY:-test_cld}"
-ADOPTED_LABEL_VALUE="${ADOPTED_LABEL_VALUE:-adopted}"
+# ClusterDeployment: that is what MCS.spec.clusterSelector matches. The value
+# is the mode, so the label says which kind of cluster it is -- test_cld=aws
+# on a provisioned one, test_cld=adopted on the container.
+CLD_LABEL_KEY="${CLD_LABEL_KEY:-test_cld}"
+CLD_LABEL_VALUE="${CLD_LABEL_VALUE:-$TEST_MODE}"
 # The three objects that adopt it, named as KCM's own config/dev manifests do.
 ADOPTED_CLD_NAME="${ADOPTED_CLD_NAME:-adopted-cluster}"
 ADOPTED_CRED_NAME="${ADOPTED_CRED_NAME:-adopted-cluster-cred}"
 ADOPTED_SECRET_NAME="${ADOPTED_SECRET_NAME:-adopted-cluster-kubeconf}"
 export ADOPTED_CLUSTER_NAME ADOPTED_API_PORT KUBECONFIG_ADOPTED
-export ADOPTED_LABEL_KEY ADOPTED_LABEL_VALUE
+export CLD_LABEL_KEY CLD_LABEL_VALUE
 export ADOPTED_CLD_NAME ADOPTED_CRED_NAME ADOPTED_SECRET_NAME
 
 # The provisioned cluster, named after the mode that built it so two providers

@@ -75,7 +75,7 @@ sed -e "s/CLD_NAME/${CLD_NAME}/g" \
 # The label the MultiClusterService selects on. Catalog's files carry
 # type/group labels for its own demos; ours has to be the one render_mcs asks
 # for, and adding it here keeps their file copyable unedited.
-yq -i ".metadata.labels.\"$ADOPTED_LABEL_KEY\" = \"$ADOPTED_LABEL_VALUE\"" "$MANIFEST"
+yq -i ".metadata.labels.\"$CLD_LABEL_KEY\" = \"$CLD_LABEL_VALUE\"" "$MANIFEST"
 
 step "Creating the ClusterDeployment '$CLD_NAME'"
 cat "$MANIFEST"

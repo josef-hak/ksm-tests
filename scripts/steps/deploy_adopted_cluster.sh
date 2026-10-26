@@ -126,7 +126,7 @@ metadata:
   namespace: $NAMESPACE
   labels:
     # What MultiClusterService.spec.clusterSelector matches.
-    $ADOPTED_LABEL_KEY: $ADOPTED_LABEL_VALUE
+    $CLD_LABEL_KEY: $CLD_LABEL_VALUE
 spec:
   template: $CLUSTER_TEMPLATE
   credential: $ADOPTED_CRED_NAME
@@ -136,7 +136,7 @@ spec:
 EOF
 
 step "Creating the ClusterDeployment '$ADOPTED_CLD_NAME'"
-log "template: $CLUSTER_TEMPLATE, label: $ADOPTED_LABEL_KEY=$ADOPTED_LABEL_VALUE"
+log "template: $CLUSTER_TEMPLATE, label: $CLD_LABEL_KEY=$CLD_LABEL_VALUE"
 kube apply -f "$MANIFEST"
 
 step "Waiting for '$ADOPTED_CLD_NAME' to be adopted"

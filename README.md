@@ -63,8 +63,9 @@ cannot: the services landing on a cluster KCM reaches over the network.
 
 `TEST_MODE=aws`, `azure` or `gcp` has k0rdent provision the cluster at the
 provider. Same shape as adopted from the scenarios' point of view — a
-`ClusterDeployment` carrying the same label — but it costs money and needs
-credentials, so it is never part of a pull request. The ClusterDeployment
+`ClusterDeployment` the services are selected onto, labelled `test_cld: aws`
+and so on — but it costs money and needs credentials, so it is never part of a
+pull request. The ClusterDeployment
 definitions, the credential charts and the checks that refuse to provision on
 bad credentials are taken from [k0rdent/catalog](https://github.com/k0rdent/catalog);
 see [`scripts/CATALOG.md`](scripts/CATALOG.md) for what was copied and
