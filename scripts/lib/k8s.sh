@@ -110,7 +110,10 @@ wait_for_condition() {
             return 0
         fi
         if (( ${#progress[@]} )); then
+            # Both, like catalog: the row says what the object is doing, the
+            # tick says how long it has been doing it.
             "${progress[@]}" 2>/dev/null || true
+            log "⏳ waiting for $kind/$name... (${elapsed}s elapsed)"
         elif (( elapsed % 30 == 0 )); then
             log "⏳ $kind/$name $type='${status:-<none>}' (${elapsed}s elapsed)"
         fi
@@ -243,6 +246,8 @@ describe_stuck() {
 # CI log shows the reason instead of a wall of identical "still present" lines.
 wait_for_absence() {
     local kind="$1" name="$2" ns="$3" timeout="$4" poll="${5:-5}"
+    shift 5 2>/dev/null || shift $#
+    local progress=("$@")
     local elapsed=0
     local diag_every="${DIAG_INTERVAL:-120}"
 
@@ -255,6 +260,11 @@ wait_for_absence() {
         if (( elapsed > 0 && elapsed % diag_every == 0 )); then
             warn "$kind/$name still present after ${elapsed}s -- diagnostics:"
             { describe_stuck "$kind" "$name" "$ns"; kcm_errors 5m; } >&2
+        elif (( ${#progress[@]} )); then
+            # See wait_for_condition: a removal that takes minutes needs to
+            # show what it is still holding on to.
+            "${progress[@]}" 2>/dev/null || true
+            log "⏳ $kind/$name still present (${elapsed}s elapsed)"
         elif (( elapsed % 30 == 0 )); then
             log "⏳ $kind/$name still present (${elapsed}s elapsed)"
         fi

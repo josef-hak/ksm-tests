@@ -101,6 +101,13 @@ log "$KUBECONFIG_CLOUD"
 
 step "Waiting for the child cluster's own pods"
 KUBECONFIG="$KUBECONFIG_CLOUD" NAMESPACE=kube-system "$SCRIPTS_DIR/utils/wait_for_deployment.sh"
+if kube_child get namespace projectsveltos >/dev/null 2>&1; then
+    KUBECONFIG="$KUBECONFIG_CLOUD" NAMESPACE=projectsveltos "$SCRIPTS_DIR/utils/wait_for_deployment.sh"
+fi
 
-kube_child get nodes
+step "The $TEST_MODE cluster"
+kube_child get nodes -o wide
+# Everything, like catalog: what a provisioned cluster brought up on its own is
+# the context for anything that goes wrong in the scenarios afterwards.
+kube_child get pods -A
 ok "The $TEST_MODE cluster '$CLD_NAME' is ready"

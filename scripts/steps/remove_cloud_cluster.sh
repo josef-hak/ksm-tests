@@ -25,22 +25,35 @@ export KUBECONFIG="$KUBECONFIG_MGMT"
 
 step "Removing the $TEST_MODE cluster '$CLD_NAME'"
 
-if resource_exists ClusterDeployment "$CLD_NAME" "$NAMESPACE"; then
-    # --wait=false and then watch: the delete call blocks for as long as the
-    # finalizers take, and a blocked call reports nothing meanwhile.
-    kube delete clusterdeployment "$CLD_NAME" -n "$NAMESPACE" --wait=false
-    if ! wait_for_absence ClusterDeployment "$CLD_NAME" "$NAMESPACE" "$CLUSTER_TIMEOUT" 10; then
-        { kube get clusterdeployment "$CLD_NAME" -n "$NAMESPACE" -o yaml
-          kcm_errors 20m; } >&2
-        warn "'$CLD_NAME' did not go away. Resources are most likely still running:"
-        warn "  TEST_MODE=$TEST_MODE ./scripts/list_cld_resources_$TEST_MODE.sh"
-        # Loud and non-zero: this is the one failure in a teardown that must
-        # not be shrugged off, because it costs money until someone looks.
-        exit 1
-    fi
-else
-    log "No ClusterDeployment '$CLD_NAME'"
+if ! resource_exists ClusterDeployment "$CLD_NAME" "$NAMESPACE"; then
+    log "No ClusterDeployment '$CLD_NAME' -- nothing was provisioned"
+    rm -f "$KUBECONFIG_CLOUD"
+    ok "Nothing to remove"
+    exit 0
 fi
 
+step "What is there before the delete"
+kube get clusterdeployment -n "$NAMESPACE"
+
+step "Deleting the ClusterDeployment"
+# --wait=false and then watch: the delete call blocks for as long as the
+# finalizers take, and a blocked call reports nothing meanwhile.
+kube delete clusterdeployment "$CLD_NAME" -n "$NAMESPACE" --wait=false
+
+step "Waiting for the provider to release it"
+log "This is where the instances, volumes and network actually go."
+if ! wait_for_absence ClusterDeployment "$CLD_NAME" "$NAMESPACE" "$CLUSTER_TIMEOUT" 10 \
+     kube get clusterdeployment "$CLD_NAME" -n "$NAMESPACE" --no-headers; then
+    { kube get clusterdeployment "$CLD_NAME" -n "$NAMESPACE" -o yaml
+      kcm_errors 20m; } >&2
+    warn "'$CLD_NAME' did not go away. Resources are most likely still running:"
+    warn "  TEST_MODE=$TEST_MODE ./scripts/list_cld_resources_$TEST_MODE.sh"
+    # Loud and non-zero: this is the one failure in a teardown that must
+    # not be shrugged off, because it costs money until someone looks.
+    exit 1
+fi
+
+step "What is left"
+kube get clusterdeployment -n "$NAMESPACE"
 rm -f "$KUBECONFIG_CLOUD"
 ok "The $TEST_MODE cluster is gone"
