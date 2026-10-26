@@ -37,8 +37,26 @@ step "Installing the $TEST_MODE Credential"
 
 # The ClusterTemplate names carry a version that moves with every k0rdent
 # release, so they are read back from the cluster rather than pinned.
+#
+# Sourced with errexit and pipefail off, and that is not defensive dressing:
+# it resolves the name of every provider's template, we install only the one
+# this mode needs, so its greps for the others find nothing and fail. Under
+# `set -euo pipefail` that kills the run with no output at all. Catalog never
+# sees it because its Management installs every template. The name we actually
+# need is checked immediately after, which is the assertion that matters.
+set +e +o pipefail
 # shellcheck source=/dev/null
 source "$SCRIPTS_DIR/export_cluster_template_names.sh"
+set -e -o pipefail
+
+case "$TEST_MODE" in
+    aws)   CLUSTER_TEMPLATE="$CT_AWS_STANDALONE_CP" ;;
+    azure) CLUSTER_TEMPLATE="$CT_AZURE_STANDALONE_CP" ;;
+    gcp)   CLUSTER_TEMPLATE="$CT_GCP_STANDALONE_CP" ;;
+esac
+[[ -n "${CLUSTER_TEMPLATE:-}" ]] || die "No $TEST_MODE-standalone-cp ClusterTemplate in '$NAMESPACE'.
+KCM_CLUSTER_TEMPLATES='$KCM_CLUSTER_TEMPLATES' -- was it installed and is it valid?"
+log "ClusterTemplate: $CLUSTER_TEMPLATE"
 
 CLD_FILE="$CONFIG_DIR/$TEST_MODE-cld.yaml"
 [[ -f "$CLD_FILE" ]] || die "No ClusterDeployment template at $CLD_FILE"
