@@ -7,7 +7,7 @@ set -euo pipefail
 # TEST_MODE=adopted a second k0s node is built and adopted, and the services
 # land there instead.
 #
-#   export KCM=1.12.0-rc.3            # required: a published chart version
+#   eval "$(./scripts/kcm_default.sh)"  # required; this is the build CI uses
 #   ./scripts/deploy_k0rdent.sh
 #
 #   export KCM=main KCM_MODE=source   # or build a branch, tag or commit

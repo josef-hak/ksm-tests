@@ -105,7 +105,11 @@ cost.
 | [`503_direct_chain`](test_scenarios/503_direct_chain.md) | only what the chain lists is accepted |
 | [`504_stepwise_chain`](test_scenarios/504_stepwise_chain.md) | a multi-hop chain is walked, not skipped |
 
-Each runs against two KCM builds: `src: main` and `release: 1.12.0-rc.3`.
+Each runs against the KCM builds in
+[`kcm-variants.yaml`](scripts/config/kcm-variants.yaml). The one marked
+`prCheck` is what a pull request, a manual run that names no version, and
+`./scripts/kcm_default.sh` all use — that file is the only place a version is
+written down.
 
 Install, `Management` reconcile and teardown are asserted too, because KSM
 sits on them. Cloud provisioning is out of scope.
@@ -132,7 +136,8 @@ scripts/            the entry points below, plus the provider helpers copied
 ### Create testing k0rdent cluster
 ~~~bash
 # Create local k0s-in-docker cluster "k0rdent-<KCM>", deploy KCM
-export KCM=1.12.0-rc.3 # (required), can be any release tag of OCI_URL chart
+eval "$(./scripts/kcm_default.sh)"  # the build this repo tests, from kcm-variants.yaml
+# export KCM=1.12.0-rc1  # or name one yourself: any release tag of the OCI_URL chart
 # ... export k0rdent cluster kubeconfig to kcfg_k0rdent and kcfg_k0rdent_<KCM>
 # export TEST_MODE=self (default); "adopted" - second k0s cluster, adopted
 #                                  # TODO later: "aws, azure, gcp"

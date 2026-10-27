@@ -139,24 +139,19 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -n "$WANT_KCM" ]]; then
-            kcm="$WANT_KCM"; mode="$WANT_KCM_MODE"; oci="$WANT_OCI_URL"
+            { echo "KCM=$WANT_KCM"; echo "KCM_MODE=$WANT_KCM_MODE"
+              echo "OCI_URL=$WANT_OCI_URL"; } >> "$GITHUB_ENV"
+            echo "KCM=$WANT_KCM ($WANT_KCM_MODE)"
           else
             # A pull request carries no inputs, and a dispatch that names no
-            # version means the same thing: take the build the parallel
-            # pipeline already marks for pull requests -- one place
-            # names the version, and this does not drift from it.
+            # version means the same thing: the build this repository tests.
+            # kcm_default.sh is the one place that answers that -- the same
+            # answer a local run gets, so the two cannot drift.
             sudo curl -fsSL -o /usr/local/bin/yq \
               https://github.com/mikefarah/yq/releases/download/v4.53.3/yq_linux_amd64
             sudo chmod +x /usr/local/bin/yq
-            sel='.variants[] | select(.prCheck == true)'
-            kcm="$(yq -r "$sel | .kcm" scripts/config/kcm-variants.yaml)"
-            mode="$(yq -r "$sel | .mode" scripts/config/kcm-variants.yaml)"
-            oci="$(yq -r "$sel | .oci // \"\"" scripts/config/kcm-variants.yaml)"
-            [[ -n "$kcm" && "$kcm" != "null" ]] \
-              || { echo "No variant in kcm-variants.yaml has prCheck: true" >&2; exit 1; }
+            ./scripts/kcm_default.sh | tee -a "$GITHUB_ENV"
           fi
-          { echo "KCM=$kcm"; echo "KCM_MODE=$mode"; echo "OCI_URL=$oci"; } >> "$GITHUB_ENV"
-          echo "KCM=$kcm ($mode)${oci:+, registry $oci}"
 
       - name: Enable debug output
         if: runner.debug == '1'

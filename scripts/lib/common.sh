@@ -286,8 +286,8 @@ require_env() {
 require_kcm() {
     [[ -n "$KCM" ]] && return 0
     die "KCM is required: it names the cluster (k0rdent-<KCM>) as well as the build.
-  export KCM=1.12.0-rc.3            # a published chart version
-  export KCM=main KCM_MODE=source   # a branch, tag or commit"
+  eval \"\$(./scripts/kcm_default.sh)\"   # the build this repo tests
+  export KCM=main KCM_MODE=source      # or a branch, tag or commit"
 }
 
 # require_yq -- several unrelated tools are called "yq"; we need mikefarah's.
