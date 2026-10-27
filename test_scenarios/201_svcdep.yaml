@@ -5,11 +5,16 @@ description: >-
   CRDs must exist before the controller. Same chain as catalog's apps/kserve.
   Issue #2, scenario 1: every service is valid, so all of them must land.
 
-# KNOWN FAILURE on KCM 1.11.0, in "Remove services": teardown removes
+# KNOWN FAILURE in "Remove services" on some KCM builds: teardown removes
 # kserve-crd before uninstalling kserve-resources, whose release still holds a
 # ClusterStorageContainer, so the uninstall fails with "ensure CRDs are
-# installed first" and the MCS finalizer never clears. Fixed between v1.11.0
-# and v1.12.0-rc1; main is unaffected.
+# installed first", the ClusterSummary never goes, and the MCS finalizer never
+# clears. The MultiClusterService is still there eleven minutes later, so no
+# timeout saves it.
+#
+# Seen on 1.12.0-rc.3. Not on main, nor on the staging build in
+# kcm-variants.yaml, where this scenario tears down cleanly -- so it is a
+# property of the build under test, not of the scenario.
 
 # Charts come from k0rdent/catalog's registry. Those are thin wrappers that
 # declare the upstream chart as a dependency of the same name, so values are

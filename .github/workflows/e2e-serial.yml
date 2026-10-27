@@ -17,9 +17,12 @@ on:
   workflow_dispatch:
     inputs:
       KCM:
-        description: 'KCM version (chart version, branch, tag, sha)'
+        description: >-
+          KCM version (chart version, branch, tag, sha).
+          Empty takes the prCheck build from scripts/config/kcm-variants.yaml,
+          which is the one this repository actually tests.
         required: false
-        default: 1.12.0-rc.3
+        default: ''
       KCM_MODE:
         description: 'KCM deployoment mode, options: source, release'
         required: false
@@ -138,8 +141,9 @@ jobs:
           if [[ -n "$WANT_KCM" ]]; then
             kcm="$WANT_KCM"; mode="$WANT_KCM_MODE"; oci="$WANT_OCI_URL"
           else
-            # A pull request carries no inputs, so it takes the build the
-            # parallel pipeline already marks for pull requests -- one place
+            # A pull request carries no inputs, and a dispatch that names no
+            # version means the same thing: take the build the parallel
+            # pipeline already marks for pull requests -- one place
             # names the version, and this does not drift from it.
             sudo curl -fsSL -o /usr/local/bin/yq \
               https://github.com/mikefarah/yq/releases/download/v4.53.3/yq_linux_amd64
