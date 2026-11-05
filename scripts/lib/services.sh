@@ -353,13 +353,15 @@ EOF
     done < <(mcs_depends_on "${MCS_IDX:-0}")
 
     # clusterSelector sits on the MCS itself, like dependsOn, and matches
-    # ClusterDeployment labels. Under self-management there is no
-    # ClusterDeployment to match, so the provider carries the target instead.
-    if [[ "$TEST_MODE" == "adopted" ]]; then
+    # ClusterDeployment labels. Keyed on self, not on adopted: every mode but
+    # self has a ClusterDeployment to select, and an aws one asking for
+    # selfManagement would deploy the services into the management cluster
+    # while the provisioned one sat there empty.
+    if [[ "$TEST_MODE" != "self" ]]; then
         cat >> "$out" <<EOF
   clusterSelector:
     matchLabels:
-      $ADOPTED_LABEL_KEY: $ADOPTED_LABEL_VALUE
+      $CLD_LABEL_KEY: $CLD_LABEL_VALUE
 EOF
     fi
 
@@ -369,7 +371,7 @@ EOF
     provider:
       name: $KSM_PROVIDER
 EOF
-    if [[ "$TEST_MODE" != "adopted" ]]; then
+    if [[ "$TEST_MODE" == "self" ]]; then
         cat >> "$out" <<EOF
       # KCM deploys into the cluster it runs in, so there is no
       # ClusterDeployment to select and no second cluster to reach.

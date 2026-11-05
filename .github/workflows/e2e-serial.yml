@@ -19,7 +19,9 @@ on:
       KCM:
         description: 'KCM version (chart version, branch, tag, sha)'
         required: false
-        default: 1.12.0-rc.3
+        # Empty still means the prCheck build from kcm-variants.yaml, which is
+        # what a pull request run takes; this is only the form's starting point.
+        default: 1.13.0-rc.5
       KCM_MODE:
         description: 'KCM deployoment mode, options: source, release'
         required: false
@@ -33,17 +35,22 @@ on:
       OCI_URL:
         description: 'KCM release oci url (kcm_mode: release)'
         required: false
-        default: 'oci://ghcr.io/k0rdent/kcm/staging'
+        default: 'oci://ghcr.io/k0rdent/kcm/charts'
+      providers:
+        description: 'Tested providers, options: adopted, aws, azure, gcp'
+        required: false
+        default: 'adopted'
       scenarios:
-        description: '(empty = all), e.g. "101_basic, 201_svcdep"'
+        # Spelled out so a subset can be picked without opening test_scenarios/.
+        # test_ci_matches_entrypoints.sh asserts this list stays complete.
+        description: >-
+          Testing scenarios, options: 101_basic, 201_svcdep,
+          202_svcdep_invalid, 301_upgrade, 302_upgrade_invalid_atomic,
+          401_mcsdep_valid, 402_mcsdep_invalid, 501_no_chain,
+          502_chain_boundary, 503_direct_chain, 504_stepwise_chain
+          (empty = all)
         required: false
         default: ''
-      TEST_MODE:
-        description: 'Where the services land, options: self, adopted'
-        required: false
-        type: choice
-        options: [adopted, self]
-        default: adopted
 
   pull_request:
     types: [opened, synchronize, reopened]
@@ -57,17 +64,52 @@ on:
 # predecessor. The inputs are empty for a pull request, which leaves those
 # grouped by branch alone.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}-${{ inputs.KCM || '' }}-${{ inputs.KCM_MODE || '' }}-${{ inputs.scenarios || '' }}-${{ inputs.TEST_MODE || '' }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}-${{ inputs.KCM || '' }}-${{ inputs.KCM_MODE || '' }}-${{ inputs.scenarios || '' }}-${{ inputs.providers || '' }}
   cancel-in-progress: true
 
 jobs:
-  e2e:
-    # Quoted: an unquoted ': ' inside the name would end the YAML key. A pull
-    # request has no inputs and resolves its build later, so it is just 'serial'.
-    name: "${{ inputs.KCM && format('serial ({0}: {1})', inputs.KCM_MODE, inputs.KCM) || 'serial' }}"
+  # One line of shell, but it has to be a job: a matrix is fixed before the job
+  # it belongs to starts, so the list cannot be built inside that job.
+  plan:
+    name: plan
     runs-on: ubuntu-24.04
-    # Every scenario on one cluster, so the budget is the whole set, not one.
+    outputs:
+      providers: ${{ steps.pick.outputs.providers }}
+    steps:
+      - name: Pick the providers
+        id: pick
+        env:
+          # Empty on a pull request: a provisioned cluster costs money on every
+          # push, so only the container-sized mode runs there unless asked.
+          WANT: ${{ inputs.providers }}
+        run: |
+          set -euo pipefail
+          list="${WANT:-adopted}"
+          json="$(jq -cR 'split(",") | map(gsub("^\\s+|\\s+$";"")) | map(select(length > 0))' <<< "$list")"
+          for p in $(jq -r '.[]' <<< "$json"); do
+            case "$p" in
+              self|adopted|aws|azure|gcp) ;;
+              *) echo "Unknown provider '$p'. Allowed: self adopted aws azure gcp" >&2; exit 1 ;;
+            esac
+          done
+          [[ "$json" != '[]' ]] || { echo "No providers selected" >&2; exit 1; }
+          echo "providers=$json" >> "$GITHUB_OUTPUT"
+          echo "Providers: $json"
+
+  e2e:
+    # Quoted: an unquoted ': ' inside the name would end the YAML key.
+    name: "${{ inputs.KCM && format('serial {0} ({1}: {2})', matrix.provider, inputs.KCM_MODE, inputs.KCM) || format('serial {0}', matrix.provider) }}"
+    needs: plan
+    runs-on: ubuntu-24.04
+    # Every scenario on one cluster, so the budget is the whole set, not one --
+    # and a provisioned cluster spends the first of it on being built.
     timeout-minutes: 300
+    strategy:
+      # One provider failing must not cancel the others: a cancelled job skips
+      # its own teardown, which for a cloud cluster means leaving it running.
+      fail-fast: false
+      matrix:
+        provider: ${{ fromJson(needs.plan.outputs.providers) }}
     # KCM, KCM_MODE and OCI_URL are deliberately not here: a pull request has
     # no inputs, so they are resolved in the step below and written to
     # GITHUB_ENV. Declaring them at job level as well would be two sources for
@@ -75,9 +117,23 @@ jobs:
     env:
       SRC_URL: ${{ inputs.SRC_URL }}
       SCENARIOS: ${{ inputs.scenarios }}
-      # Empty on a pull request, and the point of running it there is the
-      # adopted path, so that is the default here rather than common.sh's self.
-      TEST_MODE: ${{ inputs.TEST_MODE || 'adopted' }}
+      TEST_MODE: ${{ matrix.provider }}
+      # The provider knobs. Secrets stay secrets; the rest are repository
+      # variables so a region or an instance family can change without a
+      # commit. check_<provider>_creds.sh reports all the missing ones at once
+      # before anything is provisioned.
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+      AWS_EC2_FAMILY: ${{ vars.AWS_EC2_FAMILY || 't3' }}
+      AZURE_SP_APP_ID: ${{ secrets.AZURE_SP_APP_ID }}
+      AZURE_SP_PASSWORD: ${{ secrets.AZURE_SP_PASSWORD }}
+      AZURE_SP_TENANT_ID: ${{ secrets.AZURE_SP_TENANT_ID }}
+      AZURE_SUB_ID: ${{ secrets.AZURE_SUB_ID }}
+      AZURE_LOCATION: ${{ vars.AZURE_LOCATION || 'westus' }}
+      GCP_B64ENCODED_CREDENTIALS: ${{ secrets.GCP_B64ENCODED_CREDENTIALS }}
+      GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+      GCP_REGION: ${{ vars.GCP_REGION || 'us-east4' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -89,27 +145,28 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -n "$WANT_KCM" ]]; then
-            kcm="$WANT_KCM"; mode="$WANT_KCM_MODE"; oci="$WANT_OCI_URL"
+            { echo "KCM=$WANT_KCM"; echo "KCM_MODE=$WANT_KCM_MODE"
+              echo "OCI_URL=$WANT_OCI_URL"; } >> "$GITHUB_ENV"
+            echo "KCM=$WANT_KCM ($WANT_KCM_MODE)"
           else
-            # A pull request carries no inputs, so it takes the build the
-            # parallel pipeline already marks for pull requests -- one place
-            # names the version, and this does not drift from it.
+            # A pull request carries no inputs, and a dispatch that names no
+            # version means the same thing: the build this repository tests.
+            # kcm_default.sh is the one place that answers that -- the same
+            # answer a local run gets, so the two cannot drift.
             sudo curl -fsSL -o /usr/local/bin/yq \
               https://github.com/mikefarah/yq/releases/download/v4.53.3/yq_linux_amd64
             sudo chmod +x /usr/local/bin/yq
-            sel='.variants[] | select(.prCheck == true)'
-            kcm="$(yq -r "$sel | .kcm" scripts/config/kcm-variants.yaml)"
-            mode="$(yq -r "$sel | .mode" scripts/config/kcm-variants.yaml)"
-            oci="$(yq -r "$sel | .oci // \"\"" scripts/config/kcm-variants.yaml)"
-            [[ -n "$kcm" && "$kcm" != "null" ]] \
-              || { echo "No variant in kcm-variants.yaml has prCheck: true" >&2; exit 1; }
+            ./scripts/kcm_default.sh | tee -a "$GITHUB_ENV"
           fi
-          { echo "KCM=$kcm"; echo "KCM_MODE=$mode"; echo "OCI_URL=$oci"; } >> "$GITHUB_ENV"
-          echo "KCM=$kcm ($mode)${oci:+, registry $oci}"
 
       - name: Enable debug output
         if: runner.debug == '1'
         run: echo "DEBUG=true" >> "$GITHUB_ENV"
+
+      # First, before the environment is built: that takes about five minutes,
+      # and a missing secret found afterwards has wasted all of it.
+      - name: Check the provider credentials
+        run: ./scripts/steps/check_provider_creds.sh
 
       - name: Free disk space
         if: env.KCM_MODE == 'source'
@@ -161,6 +218,10 @@ jobs:
       - name: '1) Build environment: Deploy adopted ClusterDeployment'
         if: env.TEST_MODE == 'adopted'
         run: ./scripts/steps/deploy_adopted_cluster.sh
+
+      - name: '1) Build environment: Provision the cluster'
+        if: contains(fromJson('["aws","azure","gcp"]'), env.TEST_MODE)
+        run: ./scripts/steps/deploy_cloud_cluster.sh
 
       # One step per scenario, so the step list says which one failed without
       # anyone opening a 2000-line log. Actions has no per-step matrix, so the
@@ -237,10 +298,16 @@ jobs:
         if: contains(env.SCENARIO_LIST, ' 504_stepwise_chain ')
         run: SCENARIOS=504_stepwise_chain ./scripts/run_scenarios.sh
 
-      # Before the diagnostics, so a cluster that refuses to detach is part of
-      # what the run reports rather than something the teardown hides.
+      # always(), and before the diagnostics: a scenario that fails stops the
+      # steps after it, and for a provisioned cluster that would mean leaving
+      # it running at the provider. A cluster that refuses to go is also part
+      # of what the run reports rather than something the teardown hides.
+      - name: '4) Clean up: Remove the provisioned cluster'
+        if: always() && contains(fromJson('["aws","azure","gcp"]'), env.TEST_MODE)
+        run: ./scripts/steps/remove_cloud_cluster.sh
+
       - name: '4) Clean up: Remove adopted ClusterDeployment'
-        if: env.TEST_MODE == 'adopted'
+        if: always() && env.TEST_MODE == 'adopted'
         run: ./scripts/steps/remove_adopted_cluster.sh
 
       - name: Collect diagnostics
@@ -251,10 +318,17 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-logs-${{ github.run_id }}-serial
+          name: e2e-logs-${{ github.run_id }}-serial-${{ matrix.provider }}
           path: logs*/
           retention-days: 7
 
       - name: '4) Clean up: Remove k0s cluster'
         if: always()
         run: ./scripts/remove_k0rdent.sh
+
+      # Last and always(): every step above writes its own duration as it
+      # finishes, and a failed run is the one where knowing which phase ate the
+      # time is worth most.
+      - name: Report
+        if: always()
+        run: ./scripts/report.sh

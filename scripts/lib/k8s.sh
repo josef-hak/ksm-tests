@@ -69,12 +69,20 @@ own k0rdent cluster there."
 
 # resource_exists KIND NAME [NAMESPACE]
 resource_exists() {
-    local kind="$1" name="$2" ns="${3:-}"
+    local kind="$1" name="$2" ns="${3:-}" out rc
+    # --ignore-not-found, so "it is not there" is a successful empty answer and
+    # a non-zero exit means the API did not answer at all. Without it the two
+    # are the same exit status, and a teardown reading an expired token or an
+    # unreachable apiserver as absence reports success over a cluster that is
+    # still running and still billing.
     if [[ -n "$ns" ]]; then
-        kube get "$kind" "$name" -n "$ns" >/dev/null 2>&1
+        out="$(kube get "$kind" "$name" -n "$ns" --ignore-not-found -o name 2>/dev/null)"
     else
-        kube get "$kind" "$name" >/dev/null 2>&1
+        out="$(kube get "$kind" "$name" --ignore-not-found -o name 2>/dev/null)"
     fi
+    rc=$?
+    (( rc == 0 )) || return 2
+    [[ -n "$out" ]]
 }
 
 # condition_status KIND NAME NAMESPACE TYPE -- prints True/False/"" for a
@@ -87,12 +95,19 @@ condition_status() {
     kube "${args[@]}" 2>/dev/null || true
 }
 
-# wait_for_condition KIND NAME NAMESPACE TYPE TIMEOUT_SECONDS [POLL_SECONDS]
+# wait_for_condition KIND NAME NAMESPACE TYPE TIMEOUT_SECONDS [POLL_SECONDS] [CMD...]
+#
+# CMD, when given, is run on every poll and its output printed, instead of the
+# terse line every 30s. For a wait where the object's own row says more than
+# "not yet" -- a cluster being provisioned reports how far it has got, and
+# fifteen silent minutes look the same as a hang.
 #
 # Polls until the condition reports True. On timeout it dumps the object's
 # conditions -- that dump is usually the whole diagnosis, so keep it.
 wait_for_condition() {
     local kind="$1" name="$2" ns="$3" type="$4" timeout="$5" poll="${6:-5}"
+    shift 6 2>/dev/null || shift $#
+    local progress=("$@")
     local elapsed=0 status=""
 
     log "Waiting for $kind/$name condition $type=True (timeout ${timeout}s)"
@@ -102,7 +117,12 @@ wait_for_condition() {
             ok "$kind/$name is $type"
             return 0
         fi
-        if (( elapsed % 30 == 0 )); then
+        if (( ${#progress[@]} )); then
+            # Both, like catalog: the row says what the object is doing, the
+            # tick says how long it has been doing it.
+            "${progress[@]}" 2>/dev/null || true
+            log "⏳ waiting for $kind/$name... (${elapsed}s elapsed)"
+        elif (( elapsed % 30 == 0 )); then
             log "⏳ $kind/$name $type='${status:-<none>}' (${elapsed}s elapsed)"
         fi
         sleep "$poll"
@@ -234,18 +254,32 @@ describe_stuck() {
 # CI log shows the reason instead of a wall of identical "still present" lines.
 wait_for_absence() {
     local kind="$1" name="$2" ns="$3" timeout="$4" poll="${5:-5}"
-    local elapsed=0
+    shift 5 2>/dev/null || shift $#
+    local progress=("$@")
+    local elapsed=0 rc
     local diag_every="${DIAG_INTERVAL:-120}"
 
     log "Waiting for $kind/$name to disappear (timeout ${timeout}s)"
     while (( elapsed < timeout )); do
-        if ! resource_exists "$kind" "$name" "$ns"; then
-            ok "$kind/$name is gone"
-            return 0
-        fi
+        # `|| rc=$?` rather than a bare call: callers run under `set -e`, where
+        # an untested command returning non-zero -- which here is the ordinary
+        # answer "it is gone" -- kills the script before $? is ever read.
+        rc=0
+        resource_exists "$kind" "$name" "$ns" || rc=$?
+        case $rc in
+            1) ok "$kind/$name is gone"; return 0 ;;
+            # The API did not answer. Not an absence, and saying it is would
+            # declare a cluster gone on the strength of a failed request.
+            2) warn "Cannot reach the API to check $kind/$name -- still waiting" ;;
+        esac
         if (( elapsed > 0 && elapsed % diag_every == 0 )); then
             warn "$kind/$name still present after ${elapsed}s -- diagnostics:"
             { describe_stuck "$kind" "$name" "$ns"; kcm_errors 5m; } >&2
+        elif (( ${#progress[@]} )); then
+            # See wait_for_condition: a removal that takes minutes needs to
+            # show what it is still holding on to.
+            "${progress[@]}" 2>/dev/null || true
+            log "⏳ $kind/$name still present (${elapsed}s elapsed)"
         elif (( elapsed % 30 == 0 )); then
             log "⏳ $kind/$name still present (${elapsed}s elapsed)"
         fi

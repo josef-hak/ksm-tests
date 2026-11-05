@@ -7,7 +7,7 @@ set -euo pipefail
 # TEST_MODE=adopted a second k0s node is built and adopted, and the services
 # land there instead.
 #
-#   export KCM=1.12.0-rc.3            # required: a published chart version
+#   eval "$(./scripts/kcm_default.sh --export)"  # required; this is the build CI uses
 #   ./scripts/deploy_k0rdent.sh
 #
 #   export KCM=main KCM_MODE=source   # or build a branch, tag or commit
@@ -31,6 +31,10 @@ trap 'rc=$?; (( rc == 0 )) || { warn "Failed after $(( (SECONDS - START) / 60 ))
 
 log "KCM=$KCM ($KCM_MODE), cluster $MGMT_CLUSTER_NAME"
 
+# First, and a no-op unless TEST_MODE names a provider: the environment below
+# takes about five minutes, and a credential that does not work is worth
+# finding out before spending it.
+"$SCRIPTS_DIR/steps/check_provider_creds.sh"
 "$SCRIPTS_DIR/steps/deps.sh"
 "$SCRIPTS_DIR/steps/prepare_kcm.sh"
 
@@ -53,6 +57,8 @@ fi
 # A no-op unless TEST_MODE is adopted. Last: it needs the adopted-cluster
 # ClusterTemplate, which only goes valid once the Management exists.
 "$SCRIPTS_DIR/steps/deploy_adopted_cluster.sh"
+# The same for a provisioned one: a no-op unless TEST_MODE names a provider.
+"$SCRIPTS_DIR/steps/deploy_cloud_cluster.sh"
 
 ok "k0rdent $KCM is up in $(( (SECONDS - START) / 60 ))m$(( (SECONDS - START) % 60 ))s"
 log "export KUBECONFIG=${KUBECONFIG_MGMT#"$PROJECT_ROOT"/}"

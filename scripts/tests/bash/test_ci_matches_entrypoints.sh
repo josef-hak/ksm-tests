@@ -10,7 +10,7 @@ WORKFLOW="$REPO_ROOT/.github/workflows/e2e-scenario.yml"
 
 # Teardown and diagnostics are the job's own business, not part of the
 # pipeline: CI runs them on failure and cleanup, the entry points in a trap.
-NOT_PIPELINE='collect_logs|remove_k0rdent|remove_adopted_cluster'
+NOT_PIPELINE='collect_logs|remove_k0rdent|remove_adopted_cluster|remove_cloud_cluster'
 
 strip() { sed -E 's#.*/##' | grep -vE "^($NOT_PIPELINE)\.sh$"; }
 
@@ -23,8 +23,14 @@ local_run="$(grep -hoE '^ *"\$SCRIPTS_DIR/steps/[a-z_0-9]+\.sh"' \
     "$SCRIPTS_DIR/deploy_k0rdent.sh" "$SCRIPTS_DIR/run_scenario.sh" \
     | tr -d '"' | strip)"
 
+# e2e-scenario.yml runs self and adopted, never a provisioned cluster, so
+# neither the credential check nor the provisioning is part of its pipeline.
+# The entry point carries both because it serves every mode -- and only this
+# side is filtered: the serial workflow below does run them, and is checked
+# against the unfiltered list.
+CLOUD_ONLY='check_provider_creds|deploy_cloud_cluster'
 assert_eq "CI runs the same scripts, in the same order, as the entry points" \
-    "$local_run" "$ci"
+    "$(grep -vE "^($CLOUD_ONLY)\.sh$" <<< "$local_run")" "$ci"
 
 # A guard on the guard: if the extraction ever matches nothing, the comparison
 # above passes trivially and stops protecting anything.
@@ -61,5 +67,22 @@ assert_eq "the serial workflow has a step for every scenario" \
 assert_eq "and each one is conditional on the input" \
     "$(wc -l <<< "$serial_steps")" \
     "$(grep -cE "^ +if: contains\(env\.SCENARIO_LIST, ' [a-z_0-9]+ '\)$" "$SERIAL")"
+
+# The dispatch form spells the scenarios out so a subset can be picked without
+# opening test_scenarios/. A list that has gone stale is worse than no list:
+# the one scenario missing from it is the one nobody thinks to run.
+want_ids="$(sort <<< "${all_scenarios%$'\n'}" | tr '\n' ' ')"
+for wf in "$SERIAL" "$REPO_ROOT/.github/workflows/e2e.yml"; do
+    # Only the input block: the serial workflow also names every scenario in
+    # its per-scenario steps, and matching those would pass on a description
+    # that lists nothing at all. The folded block runs from `scenarios:` to the
+    # `required:` that ends it.
+    listed="$(awk '/^ +scenarios:/ { inblock = 1 }
+                   inblock && /^ +required:/ { inblock = 0 }
+                   inblock' "$wf" \
+        | grep -oE '[0-9]{3}_[a-z_0-9]+' | sort -u | tr '\n' ' ')"
+    assert_eq "$(basename "$wf") offers every scenario in its description" \
+        "$want_ids" "$listed"
+done
 
 finish

@@ -61,8 +61,25 @@ adopted `ClusterDeployment`, labelled `test_cld: adopted`, which the
 `MultiClusterService` selects on. Slower, but it covers what self-management
 cannot: the services landing on a cluster KCM reaches over the network.
 
+`TEST_MODE=aws`, `azure` or `gcp` has k0rdent provision the cluster at the
+provider. Same shape as adopted from the scenarios' point of view — a
+`ClusterDeployment` the services are selected onto, labelled `test_cld: aws`
+and so on — but it costs money and needs credentials, so it is never part of a
+pull request. The ClusterDeployment
+definitions, the credential charts and the checks that refuse to provision on
+bad credentials are taken from [k0rdent/catalog](https://github.com/k0rdent/catalog);
+see [`scripts/CATALOG.md`](scripts/CATALOG.md) for what was copied and
+what was not.
+
+| mode | needs |
+|---|---|
+| `aws` | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_EC2_FAMILY` |
+| `azure` | `AZURE_SP_APP_ID`, `AZURE_SP_PASSWORD`, `AZURE_SP_TENANT_ID`, `AZURE_SUB_ID`, `AZURE_LOCATION` |
+| `gcp` | `GCP_B64ENCODED_CREDENTIALS`, `GCP_PROJECT`, `GCP_REGION` |
+
 A run picks one mode for everything; a scenario that only makes sense in one
-of them says so with `testMode:` in its own file, and that wins.
+of them says so with `testMode:` in its own file, and that wins. `e2e-serial.yml`
+takes a list — `adopted, aws, gcp` — and runs one job per entry.
 
 Everything is a shell script, same scripts run in CI and locally.
 
@@ -88,7 +105,11 @@ cost.
 | [`503_direct_chain`](test_scenarios/503_direct_chain.md) | only what the chain lists is accepted |
 | [`504_stepwise_chain`](test_scenarios/504_stepwise_chain.md) | a multi-hop chain is walked, not skipped |
 
-Each runs against two KCM builds: `src: main` and `release: 1.12.0-rc.3`.
+Each runs against the KCM builds in
+[`kcm-variants.yaml`](scripts/config/kcm-variants.yaml). The one marked
+`prCheck` is what a pull request, a manual run that names no version, and
+`./scripts/kcm_default.sh` all use — that file is the only place a version is
+written down.
 
 Install, `Management` reconcile and teardown are asserted too, because KSM
 sits on them. Cloud provisioning is out of scope.
@@ -97,7 +118,8 @@ sits on them. Cloud provisioning is out of scope.
 
 ```
 test_scenarios/     one YAML per scenario -- the whole test definition
-scripts/            the entry points below; everything you run by hand
+scripts/            the entry points below, plus the provider helpers copied
+                    from catalog -- see CATALOG.md
   steps/            one script per pipeline step, 1:1 with the steps in CI
   utils/            subroutines the steps call; never run directly
   lib/              shared helpers; services.sh reads the scenario files
@@ -114,7 +136,8 @@ scripts/            the entry points below; everything you run by hand
 ### Create testing k0rdent cluster
 ~~~bash
 # Create local k0s-in-docker cluster "k0rdent-<KCM>", deploy KCM
-export KCM=1.12.0-rc.3 # (required), can be any release tag of OCI_URL chart
+eval "$(./scripts/kcm_default.sh --export)"  # the build this repo tests, from kcm-variants.yaml
+# export KCM=1.12.0-rc1  # or name one yourself: any release tag of the OCI_URL chart
 # ... export k0rdent cluster kubeconfig to kcfg_k0rdent and kcfg_k0rdent_<KCM>
 # export TEST_MODE=self (default); "adopted" - second k0s cluster, adopted
 #                                  # TODO later: "aws, azure, gcp"
