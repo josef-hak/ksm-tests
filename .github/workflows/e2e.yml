@@ -47,9 +47,9 @@ on:
         description: >-
           Testing scenarios, options: 101_basic, 201_svcdep,
           202_svcdep_invalid, 301_upgrade, 302_upgrade_invalid_atomic,
-          401_mcsdep_valid, 402_mcsdep_invalid, 501_no_chain,
-          502_chain_boundary, 503_direct_chain, 504_stepwise_chain
-          (empty = all)
+          401_mcsdep_valid, 402_mcsdep_invalid, 403_mcsdep_diamond,
+          501_no_chain, 502_chain_boundary, 503_direct_chain,
+          504_stepwise_chain (empty = all)
         type: string
         required: false
         default: ''
@@ -100,9 +100,9 @@ on:
         description: >-
           Testing scenarios, options: 101_basic, 201_svcdep,
           202_svcdep_invalid, 301_upgrade, 302_upgrade_invalid_atomic,
-          401_mcsdep_valid, 402_mcsdep_invalid, 501_no_chain,
-          502_chain_boundary, 503_direct_chain, 504_stepwise_chain
-          (empty = all)
+          401_mcsdep_valid, 402_mcsdep_invalid, 403_mcsdep_diamond,
+          501_no_chain, 502_chain_boundary, 503_direct_chain,
+          504_stepwise_chain (empty = all)
         required: false
         default: ''
   schedule:

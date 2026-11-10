@@ -1,0 +1,101 @@
+name: 403_mcsdep_diamond
+group: MultiClusterService dependencies
+description: >-
+  Issue #4, scenario 3: a dependency graph that is not a chain. One
+  MultiClusterService is depended on by two, and a fourth depends on both of
+  those -- fan-out and fan-in in one environment. 401 proves a single edge is
+  honoured; a single edge cannot show that an MCS waits for *every* dependency
+  rather than the first one to report in.
+
+# The services are the kserve stack split across the graph, so the ordering is
+# not only asserted but needed: kserve-resources renders a Certificate and a
+# ClusterStorageContainer, so it cannot install before cert-manager and the
+# kserve CRDs are really there. A gate that leaks fails the helm release, not
+# just a timing comparison.
+#
+# Declaration order is teardown order reversed, and that is deliberate:
+# remove_services.sh deletes from the last declared backwards, which takes
+# workload (kserve-resources) out before crds (kserve-crd). The other way round
+# is the known teardown failure documented in 201_svcdep.yaml.
+
+# Charts come from k0rdent/catalog's registry. Those are thin wrappers that
+# declare the upstream chart as a dependency of the same name, so values must
+# be nested one level under that name, exactly as catalog's own example does.
+multiClusterServices:
+  - name: certs
+    services:
+      - name: cert-manager
+        chart: cert-manager
+        version: 1.20.2
+        repo: oci://ghcr.io/k0rdent/catalog/charts
+        namespace: cert-manager
+        waitForPods: cert-manager-
+        # A cluster of its own has no cert-manager, so this copy has to bring
+        # the CRDs: kserve-resources renders a Certificate and an Issuer, and
+        # without them its release never installs.
+        values: |
+          cert-manager:
+            crds:
+              enabled: true
+        # Under self-management KCM runs its own cert-manager in this very
+        # cluster and its helm release owns the CRDs, so this copy must not
+        # install them and needs names of its own.
+        valuesTestModeSelf: |
+          cert-manager:
+            crds:
+              enabled: false
+            fullnameOverride: scenario-cert-manager
+
+  - name: crds
+    dependsOn:
+      - certs
+    services:
+      - name: kserve-crd
+        chart: kserve-crd
+        version: v0.18.0
+        repo: oci://ghcr.io/k0rdent/catalog/charts
+        namespace: kserve
+
+  # The second dependent of `certs`, and the half of the fan-out that has no
+  # functional reason to wait: nothing in traefik needs cert-manager. If the
+  # gate were keyed on the services rather than on the MCS, this is the one
+  # that would start early.
+  - name: proxy
+    dependsOn:
+      - certs
+    services:
+      - name: traefik
+        chart: traefik
+        version: 41.2.0
+        repo: oci://ghcr.io/k0rdent/catalog/charts
+        namespace: traefik
+        waitForPods: traefik-
+
+  - name: workload
+    dependsOn:
+      - crds
+      - proxy
+    services:
+      - name: kserve-resources
+        chart: kserve-resources
+        version: v0.18.0
+        repo: oci://ghcr.io/k0rdent/catalog/charts
+        namespace: kserve
+        waitForPods: kserve-controller-manager-
+        values: |
+          kserve-resources:
+            kserve:
+              controller:
+                deploymentMode: Standard
+                gateway:
+                  disableIstioVirtualHost: true
+                  disableIngressCreation: true
+
+expect:
+  # Every MCS that has dependencies is checked against all of them, so
+  # `workload` has to come after both `crds` and `proxy`, not after whichever
+  # finished first.
+  orderedAfterDependencies:
+    - crds
+    - proxy
+    - workload
