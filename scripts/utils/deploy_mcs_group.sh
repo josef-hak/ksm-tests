@@ -15,6 +15,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 source "$SCRIPTS_DIR/lib/k8s.sh"
 # shellcheck source=scripts/lib/services.sh
 source "$SCRIPTS_DIR/lib/services.sh"
+# shellcheck source=scripts/lib/checks.sh
+source "$SCRIPTS_DIR/lib/checks.sh"
 
 require_cmd kubectl jq
 require_yq
@@ -39,6 +41,11 @@ for (( i = 0; i < COUNT; i++ )); do
     log "$(mcs_object_name "$i")${deps:+  depends on: $deps}"
 done
 cat "$MANIFEST"
+
+# Optional, and no-op unless the scenario asks: some MCSs created ahead of the
+# rest, so a dependent can be seen while its dependency does not yet exist.
+# The apply below then covers them again, which changes nothing for them.
+"$SCRIPTS_DIR/utils/apply_first_mcs.sh"
 
 step "Creating them together"
 kube apply -f "$MANIFEST"
@@ -138,6 +145,13 @@ if [[ -z "${NEVER// /}" ]]; then
             WAIT_FOR_PODS="$waitfor" "$SCRIPTS_DIR/utils/wait_for_deployment.sh"
     done < <(all_services_rows)
     fi
+
+# ── Whatever else the scenario asks of each MCS ──────────────────────────────
+# Last, so a failure here is read against a rollout already known to be sound.
+# Nothing runs for an MCS without a `checks:` block.
+for (( i = 0; i < COUNT; i++ )); do
+    run_checks "$(MCS_IDX="$i" mcs_root)" "$(mcs_object_name "$i")" "$MCS_TIMEOUT"
+done
 
 kube get multiclusterservice
 ok "MultiClusterService dependencies behaved as the scenario expects"
