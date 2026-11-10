@@ -100,11 +100,38 @@ cost.
 | [`302_upgrade_invalid_atomic`](test_scenarios/302_upgrade_invalid_atomic.md) | a failed atomic upgrade returns to the previous healthy state |
 | [`401_mcsdep_valid`](test_scenarios/401_mcsdep_valid.md) | a dependent `MultiClusterService` waits for the one it depends on |
 | [`402_mcsdep_invalid`](test_scenarios/402_mcsdep_invalid.md) | a broken dependency holds the dependent back for good |
-| [`403_mcsdep_diamond`](test_scenarios/403_mcsdep_diamond.md) | a dependent of two waits for both, not for whichever finishes first |
+| [`403_mcsdep_diamond`](test_scenarios/403_mcsdep_diamond.md) | a dependent of two waits for both, a missing dependency rolls out nothing, and a dependency cannot be deleted out from under its dependents |
 | [`501_no_chain`](test_scenarios/501_no_chain.md) | with no `ServiceTemplateChain`, any version is reachable |
 | [`502_chain_boundary`](test_scenarios/502_chain_boundary.md) | a chain offering nothing refuses every upgrade |
 | [`503_direct_chain`](test_scenarios/503_direct_chain.md) | only what the chain lists is accepted |
 | [`504_stepwise_chain`](test_scenarios/504_stepwise_chain.md) | a multi-hop chain is walked, not skipped |
+
+### Optional checks a scenario can declare
+
+Three blocks, all optional and all off unless a scenario writes them, so the
+scenarios that predate them behave exactly as they did. `403_mcsdep_diamond` is
+the one that uses all three.
+
+- **`checks:` on a MultiClusterService** — waited on after the rollout the
+  scenario already asserts. `condition:` with an optional `status:` (default
+  `True`) and `message:` substring is how a scenario asserts what KCM reports
+  about itself rather than what helm did. `ClusterInReadyState` with
+  `message: "1/1"` is the obvious one: the count, not only the status.
+- **`applyFirstMultiClusterServices:`** — `{ name, checks }`, applied before
+  the rest exist. A `dependsOn` naming an MCS that is missing is a different
+  state from one that exists and has not deployed, and only this ordering
+  reaches it. The apply that follows covers these again and is a no-op for
+  them.
+- **`removeMultiClusterServices:`** — `{ name, checks, delete }`, the teardown
+  order. The default walks the declaration list backwards, which is
+  dependency-safe and so never meets KCM's refusal to delete a dependency that
+  something still depends on. An entry may name the same MCS twice: the first
+  asks, a later one with `delete: false` waits for it to follow.
+
+Check kinds: `condition`, `absent`, `present`, `noServiceSet`. The last two take
+`forSeconds:` and sit out the whole window, because "has not happened yet" and
+"will never happen" read the same at any single moment. All take an optional
+`timeout:`.
 
 Each runs against the KCM builds in
 [`kcm-variants.yaml`](scripts/config/kcm-variants.yaml). The one marked

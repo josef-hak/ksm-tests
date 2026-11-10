@@ -5,24 +5,28 @@ description: >-
   MultiClusterService is depended on by two, and a fourth depends on both of
   those -- fan-out and fan-in in one environment. 401 proves a single edge is
   honoured; a single edge cannot show that an MCS waits for *every* dependency
-  rather than the first one to report in.
+  rather than the first one to report in, nor what KCM does when a dependency
+  is missing or when one is deleted out from under its dependents.
 
 # The services are the kserve stack split across the graph, so the ordering is
 # not only asserted but needed: kserve-resources renders a Certificate and a
 # ClusterStorageContainer, so it cannot install before cert-manager and the
 # kserve CRDs are really there. A gate that leaks fails the helm release, not
 # just a timing comparison.
-#
-# Declaration order is teardown order reversed, and that is deliberate:
-# remove_services.sh deletes from the last declared backwards, which takes
-# workload (kserve-resources) out before crds (kserve-crd). The other way round
-# is the known teardown failure documented in 201_svcdep.yaml.
 
 # Charts come from k0rdent/catalog's registry. Those are thin wrappers that
 # declare the upstream chart as a dependency of the same name, so values must
 # be nested one level under that name, exactly as catalog's own example does.
 multiClusterServices:
   - name: certs
+    # ClusterInReadyState is the condition behind the CLUSTERS column, and its
+    # message is the count. Checking the count and not only the status is the
+    # difference between "KCM thinks it is fine" and "KCM counted the cluster"
+    # -- a build that reported 0/1 for twenty minutes passed every assertion
+    # this suite had before these checks existed.
+    checks:
+      - condition: ClusterInReadyState
+        message: "1/1"
     services:
       - name: cert-manager
         chart: cert-manager
@@ -49,6 +53,10 @@ multiClusterServices:
   - name: crds
     dependsOn:
       - certs
+    checks:
+      - condition: MultiClusterServiceDependencyValidation
+      - condition: ClusterInReadyState
+        message: "1/1"
     services:
       - name: kserve-crd
         chart: kserve-crd
@@ -63,6 +71,10 @@ multiClusterServices:
   - name: proxy
     dependsOn:
       - certs
+    checks:
+      - condition: MultiClusterServiceDependencyValidation
+      - condition: ClusterInReadyState
+        message: "1/1"
     services:
       - name: traefik
         chart: traefik
@@ -75,6 +87,10 @@ multiClusterServices:
     dependsOn:
       - crds
       - proxy
+    checks:
+      - condition: MultiClusterServiceDependencyValidation
+      - condition: ClusterInReadyState
+        message: "1/1"
     services:
       - name: kserve-resources
         chart: kserve-resources
@@ -90,6 +106,45 @@ multiClusterServices:
                 gateway:
                   disableIstioVirtualHost: true
                   disableIngressCreation: true
+
+# `workload` goes in before anything it depends on exists. A dependency that is
+# missing is a different state from one that exists and has not deployed yet,
+# and only this ordering reaches it. Everything else is still created in one
+# apply afterwards, so creation order cannot be what sequences the rest.
+applyFirstMultiClusterServices:
+  - name: workload
+    checks:
+      - condition: MultiClusterServiceDependencyValidation
+        status: "False"
+      # Not a late rollout -- none. The window is sat out whatever happens, so
+      # a slow start cannot pass for a refusal.
+      - noServiceSet: true
+        forSeconds: 60
+
+# The default teardown walks the declaration list backwards, which is
+# dependency-safe and therefore never meets the refusal. This asks for the root
+# first, on purpose.
+removeMultiClusterServices:
+  - name: certs
+    checks:
+      - condition: MultiClusterServiceDependencyValidation
+        status: "False"
+      # Refused, and still refused a while later: an object part-way through
+      # its finalizers looks the same as a held one at any single moment.
+      - present: true
+        forSeconds: 30
+  # Now unwind it properly. No checks means the default expectation, that each
+  # one goes away -- and this order takes kserve-resources out before
+  # kserve-crd, which is the teardown failure 201_svcdep.yaml documents.
+  - name: workload
+  - name: crds
+  - name: proxy
+  # Already asked for above; nothing depends on it any more, so the delete KCM
+  # was holding has to complete on its own.
+  - name: certs
+    delete: false
+    checks:
+      - absent: true
 
 expect:
   # Every MCS that has dependencies is checked against all of them, so

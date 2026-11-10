@@ -10,6 +10,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 source "$SCRIPTS_DIR/lib/k8s.sh"
 # shellcheck source=scripts/lib/services.sh
 source "$SCRIPTS_DIR/lib/services.sh"
+# shellcheck source=scripts/lib/checks.sh
+source "$SCRIPTS_DIR/lib/checks.sh"
 
 require_cmd kubectl helm jq
 require_yq
@@ -53,6 +55,12 @@ remove_one() {
     fi
     ok "No ServiceSet left for '$mcs'"
 }
+
+# A scenario that wants to drive the order itself -- and assert what KCM does
+# when asked in the wrong one -- does it here. No-op unless it declares the
+# block, and the loop below still runs afterwards: by then the objects are
+# gone, so it only verifies that no ServiceSet outlived them.
+"$SCRIPTS_DIR/utils/remove_mcs_ordered.sh"
 
 # Dependants first: deleting a dependency out from under one that is still
 # running is not what the scenario set up.
