@@ -46,9 +46,9 @@ on:
         description: >-
           Testing scenarios, options: 101_basic, 201_svcdep,
           202_svcdep_invalid, 301_upgrade, 302_upgrade_invalid_atomic,
-          401_mcsdep_valid, 402_mcsdep_invalid, 501_no_chain,
-          502_chain_boundary, 503_direct_chain, 504_stepwise_chain
-          (empty = all)
+          401_mcsdep_valid, 402_mcsdep_invalid, 403_mcsdep_diamond,
+          501_no_chain, 502_chain_boundary, 503_direct_chain,
+          504_stepwise_chain (empty = all)
         required: false
         default: ''
 
@@ -281,6 +281,10 @@ jobs:
       - name: '2-4) 402_mcsdep_invalid'
         if: contains(env.SCENARIO_LIST, ' 402_mcsdep_invalid ')
         run: SCENARIOS=402_mcsdep_invalid ./scripts/run_scenarios.sh
+
+      - name: '2-4) 403_mcsdep_diamond'
+        if: contains(env.SCENARIO_LIST, ' 403_mcsdep_diamond ')
+        run: SCENARIOS=403_mcsdep_diamond ./scripts/run_scenarios.sh
 
       - name: '2-4) 501_no_chain'
         if: contains(env.SCENARIO_LIST, ' 501_no_chain ')

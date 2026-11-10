@@ -100,6 +100,7 @@ cost.
 | [`302_upgrade_invalid_atomic`](test_scenarios/302_upgrade_invalid_atomic.md) | a failed atomic upgrade returns to the previous healthy state |
 | [`401_mcsdep_valid`](test_scenarios/401_mcsdep_valid.md) | a dependent `MultiClusterService` waits for the one it depends on |
 | [`402_mcsdep_invalid`](test_scenarios/402_mcsdep_invalid.md) | a broken dependency holds the dependent back for good |
+| [`403_mcsdep_diamond`](test_scenarios/403_mcsdep_diamond.md) | a dependent of two waits for both, not for whichever finishes first |
 | [`501_no_chain`](test_scenarios/501_no_chain.md) | with no `ServiceTemplateChain`, any version is reachable |
 | [`502_chain_boundary`](test_scenarios/502_chain_boundary.md) | a chain offering nothing refuses every upgrade |
 | [`503_direct_chain`](test_scenarios/503_direct_chain.md) | only what the chain lists is accepted |
