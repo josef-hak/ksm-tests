@@ -137,8 +137,8 @@ jobs:
   discover:
     name: discover
     runs-on: ubuntu-24.04
-    # Nightly runs only when the repo opts in, matching k0rdent/catalog.
-    if: github.event_name != 'schedule' || vars.ENABLE_CRON == '1'
+    # Scheduled runs only when the repo opts in.
+    if: github.event_name != 'schedule' || vars.ENABLE_CRON_E2E == '1'
     outputs:
       scenarios: ${{ steps.scan.outputs.scenarios }}
     steps:
