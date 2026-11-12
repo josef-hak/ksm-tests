@@ -56,6 +56,10 @@ on:
         type: environment
         required: false
 
+  # Scheduled job, params configured using: github.event_name == 'schedule'
+  schedule:
+    - cron: '22 13 * * 1-5' # 13:22 UTC; Mon-Fri
+
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -77,15 +81,15 @@ jobs:
   plan:
     name: plan
     runs-on: ubuntu-24.04
+    # Scheduled runs only where the repo opts in (ENABLE_CRON_E2E_SERIAL=1)
+    if: github.event_name != 'schedule' || vars.ENABLE_CRON_E2E_SERIAL == '1'
     outputs:
       providers: ${{ steps.pick.outputs.providers }}
     steps:
       - name: Pick the providers
         id: pick
         env:
-          # Empty on a pull request: a provisioned cluster costs money on every
-          # push, so only the container-sized mode runs there unless asked.
-          WANT: ${{ inputs.providers }}
+          WANT: ${{ inputs.providers || (github.event_name == 'schedule' && 'adopted,aws') || '' }}
         run: |
           set -euo pipefail
           list="${WANT:-adopted}"
@@ -105,7 +109,7 @@ jobs:
     name: "${{ inputs.KCM && format('serial {0} ({1}: {2})', matrix.provider, inputs.KCM_MODE, inputs.KCM) || format('serial {0}', matrix.provider) }}"
     needs: plan
     runs-on: ubuntu-24.04
-    environment: ${{ inputs.environment }}
+    environment: ${{ inputs.environment || (github.event_name == 'schedule' && 'prod') || '' }}
     # Every scenario on one cluster, so the budget is the whole set, not one --
     # and a provisioned cluster spends the first of it on being built.
     timeout-minutes: 300
@@ -144,8 +148,10 @@ jobs:
 
       - name: Pick the KCM build
         env:
-          WANT_KCM: ${{ inputs.KCM }}
-          WANT_KCM_MODE: ${{ inputs.KCM_MODE }}
+          # The Scheduled tests the code, not a published chart: kcm main, built
+          # from a checkout. kcm_default.sh answers for everything else.
+          WANT_KCM: ${{ inputs.KCM || (github.event_name == 'schedule' && 'main') || '' }}
+          WANT_KCM_MODE: ${{ inputs.KCM_MODE || (github.event_name == 'schedule' && 'source') || '' }}
           WANT_OCI_URL: ${{ inputs.OCI_URL }}
         run: |
           set -euo pipefail
