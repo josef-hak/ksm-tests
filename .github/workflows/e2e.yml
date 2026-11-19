@@ -137,8 +137,14 @@ jobs:
   discover:
     name: discover
     runs-on: ubuntu-24.04
-    # Scheduled runs only when the repo opts in.
-    if: github.event_name != 'schedule' || vars.ENABLE_CRON_E2E == '1'
+    # Scheduled runs only when the repo opts in -- but never gate a call from
+    # another repository. In a reusable workflow the github context is the
+    # caller's, so a nightly in k0rdent/kcm that calls this reaches here with
+    # event_name 'schedule' and would skip on a variable set in a repository
+    # that has nothing to do with it. The result is the worst kind of cron: it
+    # reports success and tests nothing. ksm_ref is required for workflow_call
+    # and is not a dispatch input, so it is the one thing that says "called".
+    if: inputs.ksm_ref != '' || github.event_name != 'schedule' || vars.ENABLE_CRON_E2E == '1'
     outputs:
       scenarios: ${{ steps.scan.outputs.scenarios }}
     steps:
