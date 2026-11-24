@@ -18,14 +18,51 @@ helm_child() {
     helm --kubeconfig "$KUBECONFIG_CHILD" "$@"
 }
 
-# release_info NAME NAMESPACE -- "revision|chart|status", empty if no release.
-# Helm 3 defaults to showing only deployed releases; -a shows all statuses.
-# Helm 4 shows all statuses by default and removed the -a flag entirely.
-# Passing --deployed --failed --pending --uninstalled --superseded works in both.
+# release_info NAME NAMESPACE -- "revision|chart|status", empty if the service
+# is not deployed. Three facts the steps compare an upgrade against: which
+# version is on the cluster, whether it is healthy, and whether it moved.
+#
+# Where they are recorded depends on who deployed the service, so this is the
+# one place that knows. Sveltos installs through Helm, so a release carries
+# them. Argo CD renders the chart and applies the manifests -- there is no
+# release to list, and its Application carries the same three.
 release_info() {
+    if [[ "${KSM_PROVIDER:-}" == "ksm-argocd" ]]; then
+        argocd_release_info "$1" "$2"
+        return
+    fi
+    # Helm 3 defaults to showing only deployed releases; -a shows all statuses.
+    # Helm 4 shows all statuses by default and removed the -a flag entirely.
+    # Passing --deployed --failed --pending --uninstalled --superseded works in both.
     helm_child list --deployed --failed --pending --uninstalled --superseded \
         -n "$2" -o json 2>/dev/null \
         | jq -r --arg n "$1" '.[] | select(.name == $n) | "\(.revision)|\(.chart)|\(.status)"'
+}
+
+# argocd_release_info NAME NAMESPACE -- release_info from the Argo CD
+# Application the KCM adapter created for this service.
+#
+# The Application lives in the management cluster even when the services land
+# somewhere else, and the adapter labels it with the service it backs.
+# Deployed means synced: the manifests of the revision Argo CD was told to
+# deploy are on the cluster. The same bar a Helm release is "deployed" at --
+# applied, not settled -- so the two providers can be compared. Health is
+# reported separately, and on a cluster with no load balancer a Service of
+# type LoadBalancer keeps it Progressing for good.
+argocd_release_info() {
+    local ns="${2:-default}"
+    kube get applications -n "${ARGOCD_NAMESPACE:-argocd}" \
+        -l "ksm.k0rdent.mirantis.com/service-name=$1,ksm.k0rdent.mirantis.com/service-namespace=$ns" \
+        -o json 2>/dev/null \
+        | jq -r '.items[0] // empty
+            | ((.status.history // []) | length) as $rev
+            | ((.spec.source.chart // "") + "-"
+               + (.status.sync.revision // .spec.source.targetRevision // "")) as $chart
+            | (if (.status.health.status == "Degraded"
+                   or ((.status.operationState.phase // "") | IN("Failed", "Error"))) then "failed"
+               elif (.status.sync.status == "Synced") then "deployed"
+               else "pending" end) as $status
+            | "\($rev)|\($chart)|\($status)"'
 }
 
 # wait_release NAME NAMESPACE TIMEOUT -- until helm reports the release
