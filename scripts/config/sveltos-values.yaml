@@ -1,0 +1,42 @@
+# Helm values for the projectsveltos provider chart, passed through
+# Management.spec.providers[name=projectsveltos].config.
+#
+# The chart KCM installs is a wrapper that declares the upstream projectsveltos
+# chart as a dependency of the same name, so everything has to be nested under
+# `projectsveltos:`. A top-level key is not rejected -- helm reads it as a value
+# of the wrapper, which uses none, and the run passes with nothing turned off.
+#
+# Everything turned off here is a component this suite has been shown not to
+# need; the sveltos-mini branch history carries the run behind each line.
+#
+# SVELTOS_VALUES points somewhere else to try another set without editing this
+# file; SVELTOS_VALUES= (empty) drops the config block entirely.
+projectsveltos:
+  # AccessRequest / RoleRequest: nothing here asks sveltos for a kubeconfig or
+  # a role in a managed cluster.
+  accessManager:
+    enabled: false
+  # Sharding spreads managed clusters over several addon-controller instances.
+  # One cluster, one shard.
+  shardController:
+    enabled: false
+  # Techsupport collects logs on a schedule for a Techsupport object. The suite
+  # collects its own with collect_logs.sh.
+  techsupportController:
+    enabled: false
+  # An MCP server for LLM clients. Nothing in a test run talks to it.
+  mcpServer:
+    enabled: false
+
+# The rest of the chart has no switch, and all of it went unused: with
+# classifier-manager, event-manager, hc-manager and sc-manager scaled to zero
+# and no sveltos-agent running in either cluster, 403_mcsdep_diamond still
+# passed -- addon-controller on its own did every rollout, ordering, refusal
+# and teardown the scenario asserts.
+#
+# That is "unused once the environment is built", not "never needed":
+# sc-manager is what takes a SveltosCluster to Ready, which the adopted
+# ClusterDeployment waits on, and classifier-manager is what puts the agent in
+# a managed cluster in the first place. Both had already done their work when
+# the probes ran. Turning them off from the start needs an `enabled` flag the
+# chart does not have, so it is an upstream ask rather than a value to set.

@@ -22,10 +22,37 @@ require_env RELEASE_NAME
 
 export KUBECONFIG="$KUBECONFIG_MGMT"
 
+# The sveltos values, if there are any: a file with nothing but comments is
+# the same as no file, and must not render an empty config block.
+#
+# The chart KCM installs is a wrapper that declares the upstream projectsveltos
+# chart as a dependency of the same name, so every value for a component has to
+# be nested one level under `projectsveltos:`. A top-level key is not an error:
+# helm takes it as a value of the wrapper, which uses none, and the run passes
+# with every component still installed.
+SVELTOS_CONFIG=""
+if [[ -n "$SVELTOS_VALUES" && -f "$SVELTOS_VALUES" ]]; then
+    # The rationale belongs in the file, not in a Kubernetes object.
+    SVELTOS_CONFIG="$(yq -P '... comments="" | select(. != null)' "$SVELTOS_VALUES")"
+fi
+if [[ -n "$SVELTOS_AGENT_MGMT" ]]; then
+    SVELTOS_CONFIG="$(AGENT="$SVELTOS_AGENT_MGMT" \
+        yq -P '.projectsveltos.agent.managementCluster = (strenv(AGENT) == "true")' \
+        <<< "$SVELTOS_CONFIG")"
+fi
+# yq puts a blank line in front of a document it built from nothing, and an
+# indented blank line is trailing whitespace in the manifest.
+SVELTOS_CONFIG="$(sed '/^[[:space:]]*$/d' <<< "$SVELTOS_CONFIG")"
+
 read -ra providers <<< "$KCM_PROVIDERS"
 MANAGEMENT_PROVIDERS=""
 for provider in "${providers[@]}"; do
     MANAGEMENT_PROVIDERS+="  - name: $provider"$'\n'
+    if [[ "$provider" == "projectsveltos" && -n "$SVELTOS_CONFIG" ]]; then
+        MANAGEMENT_PROVIDERS+="    config:"$'\n'
+        # shellcheck disable=SC2001 # per-line prefix, not a substring replace
+        MANAGEMENT_PROVIDERS+="$(sed 's/^/      /' <<< "$SVELTOS_CONFIG")"$'\n'
+    fi
 done
 # envsubst keeps the trailing newline; drop it so the YAML stays tidy.
 MANAGEMENT_PROVIDERS="${MANAGEMENT_PROVIDERS%$'\n'}"
