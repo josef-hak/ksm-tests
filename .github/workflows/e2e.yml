@@ -43,6 +43,13 @@ on:
         type: string
         required: false
         default: 'self'
+      KSM_PROVIDER:
+        description: >-
+          State management provider that deploys the services, options:
+          ksm-projectsveltos, ksm-argocd (empty = ksm-projectsveltos)
+        type: string
+        required: false
+        default: ''
       scenarios:
         description: >-
           Testing scenarios, options: 101_basic, 102_reinstall, 201_svcdep,
@@ -97,6 +104,12 @@ on:
         description: 'Tested providers, options: self, adopted'
         required: false
         default: 'self'
+      KSM_PROVIDER:
+        description: 'State management provider that deploys the services'
+        required: false
+        type: choice
+        options: [ksm-projectsveltos, ksm-argocd]
+        default: 'ksm-projectsveltos'
       scenarios:
         # test_ci_matches_entrypoints.sh asserts this list stays complete.
         description: >-
@@ -132,7 +145,7 @@ on:
 # cancels its predecessor. The inputs are empty for push, schedule and PR, which
 # leaves those grouped by branch alone.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}-${{ inputs.KCM || '' }}-${{ inputs.KCM_MODE || '' }}-${{ inputs.SRC_URL || '' }}-${{ inputs.OCI_URL || '' }}-${{ inputs.TEST_MODE || '' }}-${{ inputs.scenarios || '' }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}-${{ inputs.KCM || '' }}-${{ inputs.KCM_MODE || '' }}-${{ inputs.SRC_URL || '' }}-${{ inputs.OCI_URL || '' }}-${{ inputs.TEST_MODE || '' }}-${{ inputs.KSM_PROVIDER || '' }}-${{ inputs.scenarios || '' }}
   cancel-in-progress: true
 
 jobs:
@@ -412,6 +425,7 @@ jobs:
       has_chain: ${{ matrix.scenario.chain }}
       has_redeploy: ${{ matrix.scenario.redeploy }}
       test_mode: ${{ matrix.scenario.test_mode }}
+      ksm_provider: ${{ inputs.KSM_PROVIDER || '' }}
       src_url: ${{ inputs.SRC_URL || '' }}
       oci_url: ${{ inputs.OCI_URL || '' }}
       ksm_ref: ${{ inputs.ksm_ref || '' }}
