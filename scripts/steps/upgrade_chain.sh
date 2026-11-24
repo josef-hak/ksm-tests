@@ -122,6 +122,15 @@ for (( i = 0; i < STEPS; i++ )); do
     fi
 done
 
+# What the provider recorded about the steps, for the log. Under Argo CD there
+# is no Helm release to ask, so its Application's sync history stands in.
 step "Release history"
-helm_child history "$SVC" -n "$NS" 2>&1 | tail -8
+if [[ "${KSM_PROVIDER:-}" == "ksm-argocd" ]]; then
+    kube get applications -n "${ARGOCD_NAMESPACE:-argocd}" \
+        -l "ksm.k0rdent.mirantis.com/service-name=$SVC,ksm.k0rdent.mirantis.com/service-namespace=$NS" \
+        -o json 2>&1 \
+        | jq -r '.items[0].status.history[]? | "\(.id)\t\(.revision)\t\(.deployStartedAt)"' | tail -8
+else
+    helm_child history "$SVC" -n "$NS" 2>&1 | tail -8
+fi
 ok "Every upgrade step behaved as the chain says it should"
