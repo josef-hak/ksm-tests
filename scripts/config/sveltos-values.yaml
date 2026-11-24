@@ -27,3 +27,16 @@ projectsveltos:
   # An MCP server for LLM clients. Nothing in a test run talks to it.
   mcpServer:
     enabled: false
+
+# The rest of the chart has no switch, and all of it went unused: with
+# classifier-manager, event-manager, hc-manager and sc-manager scaled to zero
+# and no sveltos-agent running in either cluster, 403_mcsdep_diamond still
+# passed -- addon-controller on its own did every rollout, ordering, refusal
+# and teardown the scenario asserts.
+#
+# That is "unused once the environment is built", not "never needed":
+# sc-manager is what takes a SveltosCluster to Ready, which the adopted
+# ClusterDeployment waits on, and classifier-manager is what puts the agent in
+# a managed cluster in the first place. Both had already done their work when
+# the probes ran. Turning them off from the start needs an `enabled` flag the
+# chart does not have, so it is an upstream ask rather than a value to set.
