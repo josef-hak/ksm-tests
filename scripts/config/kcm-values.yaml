@@ -13,6 +13,10 @@ controller:
   createManagement: false
   createRelease: false
   createTemplates: false
+  # Which state management adapter runs. Both are built into the controller;
+  # KSM_PROVIDER picks one and common.sh renders the pair from it.
+  enableSveltosCtrl: ${KCM_ENABLE_SVELTOS_CTRL}
+  enableArgoCDCtrl: ${KCM_ENABLE_ARGOCD_CTRL}
   templatesRepoURL: ${TEMPLATES_REPO_URL}
   insecureRegistry: ${INSECURE_REGISTRY}
   defaultHelmTimeout: 20m

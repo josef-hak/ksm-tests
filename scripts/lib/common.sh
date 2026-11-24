@@ -255,34 +255,63 @@ fi
 export NAMESPACE KCM_HELM_RELEASE_NAME TEST_MODE
 export KUBECONFIG_MGMT KUBECONFIG_NAMED KUBECONFIG_CHILD
 
+# ── Which state management provider deploys the services ─────────────────────
+# KSM_PROVIDER is the StateManagementProvider every MultiClusterService names.
+# Two are built into KCM, and the choice decides three things that have to
+# agree: the KCM provider chart that installs the engine, the adapter the KCM
+# controller runs, and the name in the MultiClusterService.
+#
+#   KSM_PROVIDER=ksm-argocd ./scripts/deploy_k0rdent.sh
+#
+# runs the whole suite through Argo CD instead; no scenario changes.
+KSM_PROVIDER="${KSM_PROVIDER:-ksm-projectsveltos}"
+case "$KSM_PROVIDER" in
+    ksm-argocd)
+        KSM_PROVIDER_COMPONENT=argocd
+        KCM_ENABLE_ARGOCD_CTRL=true
+        # Nothing targets the Sveltos adapter in this mode, and with the
+        # provider chart gone its CRDs are not there for the adapter to poll.
+        KCM_ENABLE_SVELTOS_CTRL=false ;;
+    ksm-projectsveltos)
+        KSM_PROVIDER_COMPONENT=projectsveltos
+        KCM_ENABLE_ARGOCD_CTRL=false
+        KCM_ENABLE_SVELTOS_CTRL=true ;;
+    *)
+        die "Unknown KSM_PROVIDER '$KSM_PROVIDER'. Use ksm-projectsveltos or ksm-argocd." ;;
+esac
+export KSM_PROVIDER KSM_PROVIDER_COMPONENT KCM_ENABLE_ARGOCD_CTRL KCM_ENABLE_SVELTOS_CTRL
+
+# TEST_MODE=adopted needs the Sveltos CRDs for the SveltosCluster object the
+# adopted-cluster template creates, whoever deploys the services.
+ADOPTED_PROVIDERS="projectsveltos"
+[[ "$KSM_PROVIDER_COMPONENT" == "projectsveltos" ]] || ADOPTED_PROVIDERS+=" $KSM_PROVIDER_COMPONENT"
+
 # ── What KCM actually installs ───────────────────────────────────────────────
 # Only these stay in the Release and Management; every provider dropped is a
 # Helm chart KCM need not reconcile, which is most of the install time. Under
-# self-management nothing is provisioned at all, so sveltos is the whole list
-# and no cluster template is needed.
+# self-management nothing is provisioned at all, so the state management
+# provider is the whole list and no cluster template is needed.
 #
 # A provisioned cluster needs its infra provider and k0smotron on top; the
 # lists are the ones catalog's scripts/config/<mode>-kcm-management.yaml
 # carries, which is where its own e2e gets them.
 case "$TEST_MODE" in
     aws|azure|gcp)
-        KCM_PROVIDERS="${KCM_PROVIDERS:-cluster-api-provider-$TEST_MODE cluster-api-provider-k0sproject-k0smotron projectsveltos}"
+        KCM_PROVIDERS="${KCM_PROVIDERS:-cluster-api-provider-$TEST_MODE cluster-api-provider-k0sproject-k0smotron $KSM_PROVIDER_COMPONENT}"
         KCM_CLUSTER_TEMPLATES="${KCM_CLUSTER_TEMPLATES:-$TEST_MODE-standalone-cp}" ;;
     # An adopted cluster is a SveltosCluster pointed at a kubeconfig -- no
-    # infra provider, so projectsveltos is still the whole list, but the
+    # infra provider, but the Sveltos CRDs have to be there for that object
+    # even when another provider deploys to the cluster, and the
     # ClusterTemplate has to be installed for the ClusterDeployment to
     # reference it.
     adopted)
-        KCM_PROVIDERS="${KCM_PROVIDERS:-projectsveltos}"
+        KCM_PROVIDERS="${KCM_PROVIDERS:-$ADOPTED_PROVIDERS}"
         KCM_CLUSTER_TEMPLATES="${KCM_CLUSTER_TEMPLATES:-adopted-cluster}" ;;
     *)
-        KCM_PROVIDERS="${KCM_PROVIDERS:-projectsveltos}"
+        KCM_PROVIDERS="${KCM_PROVIDERS:-$KSM_PROVIDER_COMPONENT}"
         KCM_CLUSTER_TEMPLATES="${KCM_CLUSTER_TEMPLATES:-}" ;;
 esac
 export KCM_PROVIDERS KCM_CLUSTER_TEMPLATES
-
-KSM_PROVIDER="${KSM_PROVIDER:-ksm-projectsveltos}"
-export KSM_PROVIDER
 
 # ── Scenario under test ──────────────────────────────────────────────────────
 # A scenario is a file in test_scenarios/ describing the services and their

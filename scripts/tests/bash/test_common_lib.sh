@@ -34,6 +34,23 @@ adopted="$(env -u KUBECONFIG_CHILD -u KCM_CLUSTER_TEMPLATES TEST_MODE=adopted ba
     "source '$SCRIPTS_DIR/lib/common.sh'; echo \"\$KUBECONFIG_CHILD \$KCM_PROVIDERS \$KCM_CLUSTER_TEMPLATES\"")"
 assert_eq "adopted mode targets the adopted cluster, on sveltos alone" \
     "$KUBECONFIG_ADOPTED projectsveltos adopted-cluster" "$adopted"
+# ── KSM_PROVIDER ─────────────────────────────────────────────────────────────
+# Picking Argo CD has to move three things together, or the run installs one
+# engine and asks another to deploy. The unsets are for the same reason as
+# above: sourcing the library exported the Sveltos answers.
+argo="$(env -u KCM_PROVIDERS -u KCM_ENABLE_ARGOCD_CTRL -u KCM_ENABLE_SVELTOS_CTRL \
+    KSM_PROVIDER=ksm-argocd bash -c \
+    "source '$SCRIPTS_DIR/lib/common.sh'; echo \"\$KCM_PROVIDERS \$KCM_ENABLE_ARGOCD_CTRL \$KCM_ENABLE_SVELTOS_CTRL\"")"
+assert_eq "argocd is the whole provider list, with its adapter on and sveltos off" \
+    "argocd true false" "$argo"
+
+# An adopted cluster is a SveltosCluster whoever deploys to it, so the Sveltos
+# CRDs stay even when Argo CD does the deploying.
+argo_adopted="$(env -u KCM_PROVIDERS TEST_MODE=adopted KSM_PROVIDER=ksm-argocd bash -c \
+    "source '$SCRIPTS_DIR/lib/common.sh'; echo \"\$KCM_PROVIDERS\"")"
+assert_eq "adopted mode on argocd keeps sveltos for the SveltosCluster" \
+    "projectsveltos argocd" "$argo_adopted"
+
 assert_not_contains "aws provider is off" "$KCM_PROVIDERS" "cluster-api-provider-aws"
 assert_not_contains "azure provider is off" "$KCM_PROVIDERS" "cluster-api-provider-azure"
 # Only source mode uses the local registry; release mode pulls from the URL.
