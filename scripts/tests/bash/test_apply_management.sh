@@ -41,6 +41,9 @@ assert_contains "carries the local image into core.kcm.config" "$rendered" "loca
 assert_eq "disables the closed-source mcp-server" "false" \
     "$(yq -r '.spec.providers[] | select(.name == "projectsveltos")
               | .config.projectsveltos.mcpServer.enabled' "$ENVDIR/management.rendered.yaml")"
+assert_eq "disables the closed-source techsupport-controller" "false" \
+    "$(yq -r '.spec.providers[] | select(.name == "projectsveltos")
+              | .config.projectsveltos.techsupportController.enabled' "$ENVDIR/management.rendered.yaml")"
 assert_eq "and nothing else gets a config" "null" \
     "$(yq -r '.spec.providers[] | select(.name == "cluster-api-provider-docker")
               | .config' "$ENVDIR/management.rendered.yaml")"

@@ -15,3 +15,8 @@ projectsveltos:
   # exist publicly, and nothing in a test run talks to it.
   mcpServer:
     enabled: false
+  # Collects logs on a schedule for a Techsupport object;
+  # github.com/projectsveltos/techsupport does not exist publicly, and the suite
+  # collects its own logs with collect_logs.sh.
+  techsupportController:
+    enabled: false
