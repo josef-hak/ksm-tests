@@ -284,6 +284,12 @@ export KCM_PROVIDERS KCM_CLUSTER_TEMPLATES
 KSM_PROVIDER="${KSM_PROVIDER:-ksm-projectsveltos}"
 export KSM_PROVIDER
 
+# Helm values handed to the projectsveltos provider chart; what they are for is
+# in the file's own comment. Set SVELTOS_VALUES= to drop the config block and
+# install the chart exactly as KCM would on its own.
+SVELTOS_VALUES="${SVELTOS_VALUES-$CONFIG_DIR/sveltos-values.yaml}"
+export SVELTOS_VALUES
+
 # ── Scenario under test ──────────────────────────────────────────────────────
 # A scenario is a file in test_scenarios/ describing the services and their
 # dependencies. SCENARIO picks one by filename stem; SERVICES_FILE overrides

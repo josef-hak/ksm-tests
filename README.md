@@ -174,6 +174,12 @@ eval "$(./scripts/kcm_default.sh --export)"  # the build this repo tests, from k
 ./scripts/deploy_k0rdent.sh
 ~~~
 
+Which sveltos gets installed is `scripts/config/sveltos-values.yaml`: Helm values
+for the projectsveltos provider chart, carried into the `Management` object. It
+turns off the components whose sources k0rdent does not publish, so a run only
+exercises open-source sveltos. `SVELTOS_VALUES` names another file, or nothing
+(`SVELTOS_VALUES=`) for the chart's own defaults.
+
 ### Run scenario
 ~~~bash
 # TEST_MODE has to match the one deploy_k0rdent.sh built, and does by default
@@ -214,4 +220,3 @@ ln -sfn kcfg_k0rdent_1.12.0-rc1 kcfg_k0rdent
 # remove test environment (cluster) by given index (see ./scripts/k0rdent_clusters.sh output)
 ./scripts/remove_k0rdent.sh 1
 ~~~
-

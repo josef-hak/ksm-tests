@@ -1,0 +1,17 @@
+# Helm values for the projectsveltos provider chart, carried into
+# Management.spec.providers[name=projectsveltos].config by apply_management.sh.
+#
+# The chart KCM installs is a wrapper declaring the upstream projectsveltos
+# chart as a dependency of the same name, so every component value has to be
+# nested one level under `projectsveltos:`. A top-level key is not rejected --
+# helm reads it as a value of the wrapper, which uses none, and the run passes
+# with nothing turned off.
+#
+# This suite tests what k0rdent ships as open source, so the components whose
+# sources are not published are off here. SVELTOS_VALUES names another file;
+# SVELTOS_VALUES= (empty) drops the config block and takes the chart's defaults.
+projectsveltos:
+  # An MCP server for LLM clients; github.com/projectsveltos/mcp-server does not
+  # exist publicly, and nothing in a test run talks to it.
+  mcpServer:
+    enabled: false

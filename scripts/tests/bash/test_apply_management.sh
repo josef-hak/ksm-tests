@@ -35,6 +35,28 @@ assert_eq "exactly 2 providers" 2 "$(grep -cE '^ +- name:' <<< "$rendered")"
 # Without this the HelmRelease would reinstall KCM from the published image.
 assert_contains "carries the local image into core.kcm.config" "$rendered" "localhost/kcm/controller"
 
+# Whatever the values file turns off has to reach the Management object, under
+# the provider that owns it: on any other provider the chart would reject it as
+# unknown values.
+assert_eq "disables the closed-source mcp-server" "false" \
+    "$(yq -r '.spec.providers[] | select(.name == "projectsveltos")
+              | .config.projectsveltos.mcpServer.enabled' "$ENVDIR/management.rendered.yaml")"
+assert_eq "and nothing else gets a config" "null" \
+    "$(yq -r '.spec.providers[] | select(.name == "cluster-api-provider-docker")
+              | .config' "$ENVDIR/management.rendered.yaml")"
+
+# A config block with nothing in it is not the same as no config block: the
+# chart defaults would apply either way, but the manifest would claim a
+# customisation that is not there.
+SVELTOS_VALUES_FILE="$ENVDIR/sveltos-values.yaml"
+echo '# nothing but this comment' > "$SVELTOS_VALUES_FILE"
+KCM_PROVIDERS="cluster-api-provider-docker projectsveltos" \
+    SVELTOS_VALUES="$SVELTOS_VALUES_FILE" \
+    bash "$SCRIPTS_DIR/steps/apply_management.sh" >/dev/null 2>&1
+yq -e '.spec.providers[] | select(.name == "projectsveltos") | has("config")' \
+    "$ENVDIR/management.rendered.yaml" >/dev/null 2>&1
+assert_eq "no config block for an empty values file" 1 "$?"
+
 # Missing inputs must fail loudly rather than render junk.
 rm -f "$ENVDIR/kcm-values.rendered.yaml"
 out=$(bash "$SCRIPTS_DIR/steps/apply_management.sh" 2>&1)
