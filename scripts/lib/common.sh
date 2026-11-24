@@ -313,6 +313,20 @@ case "$TEST_MODE" in
 esac
 export KCM_PROVIDERS KCM_CLUSTER_TEMPLATES
 
+# Namespaces the state management engines run in -- what to wait for after the
+# install and whose logs to collect when something fails. KCM gives each one a
+# namespace named after its provider chart, so the list is just the state
+# management entries of KCM_PROVIDERS: 'projectsveltos', 'argocd', or both
+# under adopted mode on Argo CD.
+KSM_NAMESPACES=""
+for _p in $KCM_PROVIDERS; do
+    case "$_p" in
+        projectsveltos|argocd) KSM_NAMESPACES+="${KSM_NAMESPACES:+ }$_p" ;;
+    esac
+done
+unset _p
+export KSM_NAMESPACES
+
 # ── Scenario under test ──────────────────────────────────────────────────────
 # A scenario is a file in test_scenarios/ describing the services and their
 # dependencies. SCENARIO picks one by filename stem; SERVICES_FILE overrides

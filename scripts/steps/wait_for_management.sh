@@ -49,12 +49,14 @@ else
     warn "$RELEASE_ENV not found -- skipping the ClusterTemplate check"
 fi
 
-step "Waiting for the projectsveltos pods"
-if kube get namespace projectsveltos >/dev/null 2>&1; then
-    NAMESPACE=projectsveltos "$SCRIPTS_DIR/utils/wait_for_deployment.sh"
-else
-    warn "Namespace 'projectsveltos' does not exist -- skipping"
-fi
+for ns in $KSM_NAMESPACES; do
+    step "Waiting for the $ns pods"
+    if kube get namespace "$ns" >/dev/null 2>&1; then
+        NAMESPACE="$ns" "$SCRIPTS_DIR/utils/wait_for_deployment.sh"
+    else
+        warn "Namespace '$ns' does not exist -- skipping"
+    fi
+done
 
 kube get management kcm
 ok "KCM management is up"

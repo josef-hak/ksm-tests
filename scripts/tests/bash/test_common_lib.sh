@@ -51,6 +51,17 @@ argo_adopted="$(env -u KCM_PROVIDERS TEST_MODE=adopted KSM_PROVIDER=ksm-argocd b
 assert_eq "adopted mode on argocd keeps sveltos for the SveltosCluster" \
     "projectsveltos argocd" "$argo_adopted"
 
+# The pods waited for and the logs collected follow the engine that is
+# installed, so a run on Argo CD looks at the argocd namespace and not at one
+# that was never created.
+assert_eq "sveltos runs in its own namespace" "projectsveltos" "$KSM_NAMESPACES"
+assert_eq "argocd replaces it, not adds to it" "argocd" \
+    "$(env -u KCM_PROVIDERS -u KSM_NAMESPACES KSM_PROVIDER=ksm-argocd bash -c \
+        "source '$SCRIPTS_DIR/lib/common.sh'; echo \"\$KSM_NAMESPACES\"")"
+assert_eq "adopted mode on argocd has both" "projectsveltos argocd" \
+    "$(env -u KCM_PROVIDERS -u KSM_NAMESPACES TEST_MODE=adopted KSM_PROVIDER=ksm-argocd bash -c \
+        "source '$SCRIPTS_DIR/lib/common.sh'; echo \"\$KSM_NAMESPACES\"")"
+
 assert_not_contains "aws provider is off" "$KCM_PROVIDERS" "cluster-api-provider-aws"
 assert_not_contains "azure provider is off" "$KCM_PROVIDERS" "cluster-api-provider-azure"
 # Only source mode uses the local registry; release mode pulls from the URL.

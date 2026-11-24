@@ -245,7 +245,7 @@ kcm_errors() {
         2>/dev/null | tail -25 || true
 
     local ns pod
-    for ns in "$NAMESPACE" projectsveltos; do
+    for ns in "$NAMESPACE" $KSM_NAMESPACES; do
         kube get namespace "$ns" >/dev/null 2>&1 || continue
         while read -r pod; do
             [[ -n "$pod" ]] || continue

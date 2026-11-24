@@ -68,7 +68,7 @@ dump capi-machines.txt kube get machines -A -o wide
 dump sveltosclusters.txt kube get sveltosclusters -A -o wide
 
 # ── Controller logs ──────────────────────────────────────────────────────────
-for ns in "$NAMESPACE" projectsveltos; do
+for ns in "$NAMESPACE" $KSM_NAMESPACES; do
     kube get namespace "$ns" >/dev/null 2>&1 || continue
     while read -r pod; do
         [[ -n "$pod" ]] || continue
