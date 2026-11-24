@@ -214,3 +214,4 @@ ln -sfn kcfg_k0rdent_1.12.0-rc1 kcfg_k0rdent
 # remove test environment (cluster) by given index (see ./scripts/k0rdent_clusters.sh output)
 ./scripts/remove_k0rdent.sh 1
 ~~~
+
