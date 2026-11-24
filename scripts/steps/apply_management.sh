@@ -24,13 +24,21 @@ export KUBECONFIG="$KUBECONFIG_MGMT"
 
 # The sveltos values, if there are any: a file with nothing but comments is
 # the same as no file, and must not render an empty config block.
+#
+# The chart KCM installs is a wrapper that declares the upstream projectsveltos
+# chart as a dependency of the same name, so every value for a component has to
+# be nested one level under `projectsveltos:`. A top-level key is not an error:
+# helm takes it as a value of the wrapper, which uses none, and the run passes
+# with every component still installed.
 SVELTOS_CONFIG=""
 if [[ -n "$SVELTOS_VALUES" && -f "$SVELTOS_VALUES" ]]; then
-    SVELTOS_CONFIG="$(yq -P 'select(. != null)' "$SVELTOS_VALUES")"
+    # The rationale belongs in the file, not in a Kubernetes object.
+    SVELTOS_CONFIG="$(yq -P '... comments="" | select(. != null)' "$SVELTOS_VALUES")"
 fi
 if [[ -n "$SVELTOS_AGENT_MGMT" ]]; then
     SVELTOS_CONFIG="$(AGENT="$SVELTOS_AGENT_MGMT" \
-        yq -P '.agent.managementCluster = (strenv(AGENT) == "true")' <<< "$SVELTOS_CONFIG")"
+        yq -P '.projectsveltos.agent.managementCluster = (strenv(AGENT) == "true")' \
+        <<< "$SVELTOS_CONFIG")"
 fi
 # yq puts a blank line in front of a document it built from nothing, and an
 # indented blank line is trailing whitespace in the manifest.

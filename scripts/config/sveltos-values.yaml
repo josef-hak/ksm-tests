@@ -1,9 +1,29 @@
 # Helm values for the projectsveltos provider chart, passed through
 # Management.spec.providers[name=projectsveltos].config.
 #
-# Empty means the chart's own defaults, which is what KCM installs on its own.
-# Everything written here is a component this suite has been shown not to need;
-# see the sveltos-mini branch history for the run that established each line.
+# The chart KCM installs is a wrapper that declares the upstream projectsveltos
+# chart as a dependency of the same name, so everything has to be nested under
+# `projectsveltos:`. A top-level key is not rejected -- helm reads it as a value
+# of the wrapper, which uses none, and the run passes with nothing turned off.
+#
+# Everything turned off here is a component this suite has been shown not to
+# need; the sveltos-mini branch history carries the run behind each line.
 #
 # SVELTOS_VALUES points somewhere else to try another set without editing this
 # file; SVELTOS_VALUES= (empty) drops the config block entirely.
+projectsveltos:
+  # AccessRequest / RoleRequest: nothing here asks sveltos for a kubeconfig or
+  # a role in a managed cluster.
+  accessManager:
+    enabled: false
+  # Sharding spreads managed clusters over several addon-controller instances.
+  # One cluster, one shard.
+  shardController:
+    enabled: false
+  # Techsupport collects logs on a schedule for a Techsupport object. The suite
+  # collects its own with collect_logs.sh.
+  techsupportController:
+    enabled: false
+  # An MCP server for LLM clients. Nothing in a test run talks to it.
+  mcpServer:
+    enabled: false
