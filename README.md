@@ -77,6 +77,17 @@ what was not.
 | `azure` | `AZURE_SP_APP_ID`, `AZURE_SP_PASSWORD`, `AZURE_SP_TENANT_ID`, `AZURE_SUB_ID`, `AZURE_LOCATION` |
 | `gcp` | `GCP_B64ENCODED_CREDENTIALS`, `GCP_PROJECT`, `GCP_REGION` |
 
+## Which adapter deploys them
+`KSM_PROVIDER` names the `StateManagementProvider` every `MultiClusterService`
+is routed to. The default, `ksm-projectsveltos`, is KCM's built-in Sveltos
+adapter.
+
+`KSM_PROVIDER=ksm-flux` runs the same scenarios through KCM's Flux adapter —
+one `HelmRelease` per service instead of a Sveltos `Profile`. It is opt-in in
+the chart, so `deploy_kcm.sh` also installs KCM with `controller.enableFluxCtrl`
+on; a build without the adapter has no `ksm-flux` provider and every
+`ServiceSet` would sit unreconciled.
+
 A run picks one mode for everything; a scenario that only makes sense in one
 of them says so with `testMode:` in its own file, and that wins. `e2e-serial.yml`
 takes a list — `adopted, aws, gcp` — and runs one job per entry.
@@ -171,6 +182,7 @@ eval "$(./scripts/kcm_default.sh --export)"  # the build this repo tests, from k
 # export TEST_MODE=self (default); "adopted" - second k0s cluster, adopted
 #                                  # TODO later: "aws, azure, gcp"
 # export KCM_MODE=release (default); "source" - build and deploy kcm from SRC_URL git, KCM ref (tag, branch, sha)
+# export KSM_PROVIDER=ksm-projectsveltos (default); "ksm-flux" - KCM's Flux adapter
 ./scripts/deploy_k0rdent.sh
 ~~~
 

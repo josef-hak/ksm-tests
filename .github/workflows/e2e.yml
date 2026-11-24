@@ -53,6 +53,14 @@ on:
         type: string
         required: false
         default: ''
+      KSM_PROVIDER:
+        description: >-
+          StateManagementProvider the MultiClusterServices name. Empty means
+          ksm-projectsveltos; ksm-flux also turns KCM's Flux adapter on in the
+          chart, which only a build that has it will accept.
+        type: string
+        required: false
+        default: ''
       ksm_ref:
         description: >-
           The ref of THIS repository to run, matching the one in the caller's
@@ -97,6 +105,12 @@ on:
         description: 'Tested providers, options: self, adopted'
         required: false
         default: 'self'
+      KSM_PROVIDER:
+        description: 'StateManagementProvider, options: ksm-projectsveltos, ksm-flux'
+        required: false
+        type: choice
+        options: [ksm-projectsveltos, ksm-flux]
+        default: 'ksm-projectsveltos'
       scenarios:
         # test_ci_matches_entrypoints.sh asserts this list stays complete.
         description: >-
@@ -132,7 +146,7 @@ on:
 # cancels its predecessor. The inputs are empty for push, schedule and PR, which
 # leaves those grouped by branch alone.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}-${{ inputs.KCM || '' }}-${{ inputs.KCM_MODE || '' }}-${{ inputs.SRC_URL || '' }}-${{ inputs.OCI_URL || '' }}-${{ inputs.TEST_MODE || '' }}-${{ inputs.scenarios || '' }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}-${{ inputs.KCM || '' }}-${{ inputs.KCM_MODE || '' }}-${{ inputs.SRC_URL || '' }}-${{ inputs.OCI_URL || '' }}-${{ inputs.TEST_MODE || '' }}-${{ inputs.KSM_PROVIDER || '' }}-${{ inputs.scenarios || '' }}
   cancel-in-progress: true
 
 jobs:
@@ -412,6 +426,7 @@ jobs:
       has_chain: ${{ matrix.scenario.chain }}
       has_redeploy: ${{ matrix.scenario.redeploy }}
       test_mode: ${{ matrix.scenario.test_mode }}
+      ksm_provider: ${{ inputs.KSM_PROVIDER || '' }}
       src_url: ${{ inputs.SRC_URL || '' }}
       oci_url: ${{ inputs.OCI_URL || '' }}
       ksm_ref: ${{ inputs.ksm_ref || '' }}

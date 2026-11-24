@@ -281,8 +281,17 @@ case "$TEST_MODE" in
 esac
 export KCM_PROVIDERS KCM_CLUSTER_TEMPLATES
 
+# The StateManagementProvider every MultiClusterService names. ksm-flux is
+# KCM's Flux adapter: one HelmRelease per service instead of a Sveltos
+# Profile. It is opt-in in the chart, so deploy_kcm.sh has to turn it on --
+# and only a KCM build that has the adapter will do.
 KSM_PROVIDER="${KSM_PROVIDER:-ksm-projectsveltos}"
 export KSM_PROVIDER
+
+# is_flux_provider -- the services go through KCM's Flux adapter.
+is_flux_provider() {
+    [[ "$KSM_PROVIDER" == "ksm-flux" ]]
+}
 
 # ── Scenario under test ──────────────────────────────────────────────────────
 # A scenario is a file in test_scenarios/ describing the services and their

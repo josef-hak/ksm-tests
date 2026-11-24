@@ -50,6 +50,11 @@ on:
         type: string
         required: false
         default: 'self'
+      ksm_provider:
+        description: 'StateManagementProvider the MultiClusterServices name; empty means ksm-projectsveltos'
+        type: string
+        required: false
+        default: ''
       ksm_ref:
         description: 'The ref of THIS repository to run; empty when called from within it'
         type: string
@@ -90,6 +95,9 @@ jobs:
       # Resolved by the caller: the run asks for a mode, a scenario that only
       # makes sense in one of them overrides it.
       TEST_MODE: ${{ inputs.test_mode }}
+      # Empty falls through to the default in common.sh. ksm-flux also makes
+      # deploy_kcm.sh turn the Flux adapter on in the chart.
+      KSM_PROVIDER: ${{ inputs.ksm_provider }}
     steps:
       - uses: actions/checkout@v7
         with:
