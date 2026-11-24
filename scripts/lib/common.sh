@@ -284,6 +284,18 @@ export KCM_PROVIDERS KCM_CLUSTER_TEMPLATES
 KSM_PROVIDER="${KSM_PROVIDER:-ksm-projectsveltos}"
 export KSM_PROVIDER
 
+# Helm values handed to the projectsveltos provider chart. The file is empty by
+# default, so KCM installs the chart exactly as it would on its own; what it
+# can carry is in the file's own comment. Set SVELTOS_VALUES= to drop the
+# config block even when the file has content.
+SVELTOS_VALUES="${SVELTOS_VALUES-$CONFIG_DIR/sveltos-values.yaml}"
+# Where the sveltos agent and the drift-detection manager run. The chart's
+# default is the managed cluster; true moves both into the management cluster,
+# which is the --agent-in-mgmt-cluster deployment. Unset leaves it to
+# SVELTOS_VALUES, so only an explicit value overrides the file.
+SVELTOS_AGENT_MGMT="${SVELTOS_AGENT_MGMT:-}"
+export SVELTOS_VALUES SVELTOS_AGENT_MGMT
+
 # ── Scenario under test ──────────────────────────────────────────────────────
 # A scenario is a file in test_scenarios/ describing the services and their
 # dependencies. SCENARIO picks one by filename stem; SERVICES_FILE overrides

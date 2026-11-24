@@ -1,0 +1,9 @@
+# Helm values for the projectsveltos provider chart, passed through
+# Management.spec.providers[name=projectsveltos].config.
+#
+# Empty means the chart's own defaults, which is what KCM installs on its own.
+# Everything written here is a component this suite has been shown not to need;
+# see the sveltos-mini branch history for the run that established each line.
+#
+# SVELTOS_VALUES points somewhere else to try another set without editing this
+# file; SVELTOS_VALUES= (empty) drops the config block entirely.

@@ -35,6 +35,34 @@ assert_eq "exactly 2 providers" 2 "$(grep -cE '^ +- name:' <<< "$rendered")"
 # Without this the HelmRelease would reinstall KCM from the published image.
 assert_contains "carries the local image into core.kcm.config" "$rendered" "localhost/kcm/controller"
 
+# The sveltos values file is comments only by default, and a config block with
+# nothing in it is not the same as no config block: KCM would read it as "no
+# values" and the chart's defaults would apply anyway, but the manifest would
+# claim a customisation that is not there.
+yq -e '.spec.providers[] | select(.name == "projectsveltos") | has("config")' \
+    "$ENVDIR/management.rendered.yaml" >/dev/null 2>&1
+assert_eq "no config block for an empty values file" 1 "$?"
+
+SVELTOS_VALUES_FILE="$ENVDIR/sveltos-values.yaml"
+cat > "$SVELTOS_VALUES_FILE" <<'EOF'
+techsupportController:
+  enabled: false
+EOF
+KCM_PROVIDERS="cluster-api-provider-docker projectsveltos"     SVELTOS_VALUES="$SVELTOS_VALUES_FILE" SVELTOS_AGENT_MGMT=true     bash "$SCRIPTS_DIR/steps/apply_management.sh" >/dev/null 2>&1
+rendered="$(cat "$ENVDIR/management.rendered.yaml")"
+assert_eq "still exactly 2 providers" 2 "$(grep -cE '^ +- name:' <<< "$rendered")"
+assert_eq "carries the sveltos values" "false" \
+    "$(yq -r '.spec.providers[] | select(.name == "projectsveltos")
+              | .config.techsupportController.enabled' "$ENVDIR/management.rendered.yaml")"
+assert_eq "and the agent switch on top of them" "true" \
+    "$(yq -r '.spec.providers[] | select(.name == "projectsveltos")
+              | .config.agent.managementCluster' "$ENVDIR/management.rendered.yaml")"
+# The config belongs to sveltos alone; on the docker provider the chart would
+# reject it as unknown values.
+assert_eq "and nothing else gets one" "null" \
+    "$(yq -r '.spec.providers[] | select(.name == "cluster-api-provider-docker")
+              | .config' "$ENVDIR/management.rendered.yaml")"
+
 # Missing inputs must fail loudly rather than render junk.
 rm -f "$ENVDIR/kcm-values.rendered.yaml"
 out=$(bash "$SCRIPTS_DIR/steps/apply_management.sh" 2>&1)
