@@ -48,8 +48,20 @@ current_version() {
 
 current_status() { cut -d'|' -f3 <<< "$(release_info "$SVC" "$NS")"; }
 
-# history_versions -- every chart version this release has ever been on.
+# history_versions -- every chart version this service has ever been on, which
+# is what a stepwise chain is checked against: the end version alone cannot
+# tell a chain that stepped through its hops from one that jumped them.
+#
+# Helm keeps that in the release history; Argo CD keeps it on its Application,
+# one entry per revision it synced.
 history_versions() {
+    if [[ "${KSM_PROVIDER:-}" == "ksm-argocd" ]]; then
+        kube get applications -n "${ARGOCD_NAMESPACE:-argocd}" \
+            -l "ksm.k0rdent.mirantis.com/service-name=$SVC,ksm.k0rdent.mirantis.com/service-namespace=$NS" \
+            -o json 2>/dev/null \
+            | jq -r '.items[0].status.history[]?.revision' 2>/dev/null
+        return
+    fi
     helm_child history "$SVC" -n "$NS" -o json 2>/dev/null \
         | jq -r '.[].chart' 2>/dev/null | while read -r c; do chart_version "$c"; done
 }
