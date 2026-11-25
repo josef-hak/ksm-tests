@@ -65,6 +65,21 @@ argocd_release_info() {
             | "\($rev)|\($chart)|\($status)"'
 }
 
+# argocd_live_revision NAME NAMESPACE -- the revision Argo CD last actually
+# synced, which is what is running on the cluster. Empty if it never synced.
+#
+# Not status.sync.revision: that moves to whatever is being compared, failed
+# comparison included, so after a rejected upgrade it names a revision no
+# resource on the cluster was ever rendered from. The history only gains an
+# entry once a sync succeeded.
+argocd_live_revision() {
+    local ns="${2:-default}"
+    kube get applications -n "${ARGOCD_NAMESPACE:-argocd}" \
+        -l "ksm.k0rdent.mirantis.com/service-name=$1,ksm.k0rdent.mirantis.com/service-namespace=$ns" \
+        -o json 2>/dev/null \
+        | jq -r '(.items[0].status.history // []) | last | .revision // empty'
+}
+
 # wait_release NAME NAMESPACE TIMEOUT -- until helm reports the release
 # deployed. Checking the namespace instead is not enough: namespaces outlive
 # the services that created them, so a leftover one passes instantly and a

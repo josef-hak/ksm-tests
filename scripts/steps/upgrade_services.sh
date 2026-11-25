@@ -98,7 +98,32 @@ ROLLED_BACK_TO="$(upgrade_expect_field rolledBackTo)"
 settled=false
 elapsed=0
 
-if [[ -n "$ROLLED_BACK_TO" ]]; then
+if [[ -n "$ROLLED_BACK_TO" && "${KSM_PROVIDER:-}" == "ksm-argocd" ]]; then
+    # Argo CD has no atomic upgrade to undo. The invalid manifest is rejected
+    # by the server-side diff before anything is applied, so what was running
+    # keeps running and there is no failed revision to roll back from. The
+    # same claim in Argo CD's terms: the last revision it synced is still the
+    # one from before the upgrade, and the service says Failed rather than
+    # quietly reporting the version it never managed to deploy.
+    watch_svc="$EXPECT_FAILED"
+    step "Waiting for the rejected upgrade of '$watch_svc' to settle"
+    ns="$(service_field "$watch_svc" namespace)"
+
+    while (( elapsed < MCS_TIMEOUT )); do
+        json="$(sset_json)"
+        state="$(state_of "$watch_svc" "$json")"
+        live="$(argocd_live_revision "$watch_svc" "$ns")"
+        [[ -z "$live" || "$live" == "$ROLLED_BACK_TO" ]] \
+            || { dump_states "$json" >&2
+                 die "'$watch_svc' synced $live: the rejected upgrade reached the cluster instead of being refused"; }
+        if [[ "$state" == "Failed" && "$live" == "$ROLLED_BACK_TO" ]]; then
+            settled=true; break
+        fi
+        (( elapsed % 30 == 0 )) && log "⏳ '$watch_svc' is '${state:-<absent>}' on '${live:-<nothing synced>}' (${elapsed}s)"
+        sleep 5
+        elapsed=$(( elapsed + 5 ))
+    done
+elif [[ -n "$ROLLED_BACK_TO" ]]; then
     watch_svc="$EXPECT_FAILED"
     step "Waiting for the atomic upgrade of '$watch_svc' to settle"
     ns="$(service_field "$watch_svc" namespace)"
@@ -211,7 +236,22 @@ while read -r name; do
 done < <(upgrade_expect_list rolledOut)
 
 # ── What must have been rolled back ──────────────────────────────────────────
-if [[ -n "$ROLLED_BACK_TO" ]]; then
+if [[ -n "$ROLLED_BACK_TO" && "${KSM_PROVIDER:-}" == "ksm-argocd" ]]; then
+    name="$EXPECT_FAILED"
+    ns="$(service_field "$name" namespace)"
+    live="$(argocd_live_revision "$name" "$ns")"
+
+    [[ "$live" == "$ROLLED_BACK_TO" ]] \
+        || die "'$name' should still be serving $ROLLED_BACK_TO but Argo CD last synced '${live:-<nothing>}'"
+    # Nothing was applied, so the pods cannot have been replaced either. The
+    # version alone would not catch an upgrade that was applied and then
+    # reverted by hand.
+    after_pods="$(pod_uids "$ns")"
+    [[ "${BEFORE_PODS[$name]}" == "$after_pods" ]] \
+        || { echo "before: ${BEFORE_PODS[$name]}" >&2; echo "after:  $after_pods" >&2
+             die "'$name' refused the upgrade but its pods were replaced"; }
+    ok "'$name' kept $ROLLED_BACK_TO running and reports Failed"
+elif [[ -n "$ROLLED_BACK_TO" ]]; then
     name="$EXPECT_FAILED"
     ns="$(service_field "$name" namespace)"
     chart="$(service_field "$name" chart)"
