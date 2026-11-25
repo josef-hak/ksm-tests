@@ -6,6 +6,11 @@ description: >-
   the release on the previous healthy version, and the rest of the chain must
   not move.
 
+# Under KSM_PROVIDER=ksm-argocd there is no atomic upgrade to undo: the
+# rejected manifest never reaches the cluster, so the claim becomes that the
+# last synced revision is still rolledBackTo. Same expectations, see
+# scripts/steps/upgrade_services.sh.
+#
 # Unlike 202_svcdep_invalid there IS a previous healthy state to roll back to.
 # atomic is set from the first deploy, not added at upgrade time: adding it
 # later makes sveltos reinstall rather than upgrade.

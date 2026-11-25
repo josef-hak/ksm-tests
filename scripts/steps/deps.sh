@@ -115,7 +115,10 @@ command -v envsubst >/dev/null 2>&1 \
     || die "'envsubst' is required (Debian/Ubuntu: apt-get install gettext-base, macOS: brew install gettext)."
 
 step "Versions"
-kubectl version --client 2>/dev/null | head -1
+# No pipe: kubectl prints a second line, and `| head -1` races it to SIGPIPE,
+# which pipefail turns into a dead step (exit 141) often enough to matter.
+kubectl_version="$(kubectl version --client 2>/dev/null)"
+printf '%s\n' "${kubectl_version%%$'\n'*}"
 helm version --short
 yq --version
 jq --version

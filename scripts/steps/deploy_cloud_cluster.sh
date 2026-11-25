@@ -116,9 +116,13 @@ log "$KUBECONFIG_CLOUD"
 
 step "Waiting for the child cluster's own pods"
 KUBECONFIG="$KUBECONFIG_CLOUD" NAMESPACE=kube-system "$SCRIPTS_DIR/utils/wait_for_deployment.sh"
-if kube_child get namespace projectsveltos >/dev/null 2>&1; then
-    KUBECONFIG="$KUBECONFIG_CLOUD" NAMESPACE=projectsveltos "$SCRIPTS_DIR/utils/wait_for_deployment.sh"
-fi
+# Only an agent-side engine puts anything here -- Sveltos does, Argo CD
+# deploys from the management cluster and leaves the child with none.
+for ns in $KSM_NAMESPACES; do
+    if kube_child get namespace "$ns" >/dev/null 2>&1; then
+        KUBECONFIG="$KUBECONFIG_CLOUD" NAMESPACE="$ns" "$SCRIPTS_DIR/utils/wait_for_deployment.sh"
+    fi
+done
 
 step "The $TEST_MODE cluster"
 kube_child get nodes -o wide

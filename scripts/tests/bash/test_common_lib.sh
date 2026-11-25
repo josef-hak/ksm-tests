@@ -34,6 +34,64 @@ adopted="$(env -u KUBECONFIG_CHILD -u KCM_CLUSTER_TEMPLATES TEST_MODE=adopted ba
     "source '$SCRIPTS_DIR/lib/common.sh'; echo \"\$KUBECONFIG_CHILD \$KCM_PROVIDERS \$KCM_CLUSTER_TEMPLATES\"")"
 assert_eq "adopted mode targets the adopted cluster, on sveltos alone" \
     "$KUBECONFIG_ADOPTED projectsveltos adopted-cluster" "$adopted"
+# ── KSM_PROVIDER ─────────────────────────────────────────────────────────────
+# Picking Argo CD has to move three things together, or the run installs one
+# engine and asks another to deploy. The unsets are for the same reason as
+# above: sourcing the library exported the Sveltos answers.
+argo="$(env -u KCM_PROVIDERS -u KCM_ENABLE_ARGOCD_CTRL -u KCM_ENABLE_SVELTOS_CTRL \
+    KSM_PROVIDER=ksm-argocd bash -c \
+    "source '$SCRIPTS_DIR/lib/common.sh'; echo \"\$KCM_PROVIDERS \$KCM_ENABLE_ARGOCD_CTRL \$KCM_ENABLE_SVELTOS_CTRL\"")"
+assert_eq "argocd is the whole provider list, with its adapter on and sveltos off" \
+    "argocd true false" "$argo"
+
+# An adopted cluster is a SveltosCluster whoever deploys to it, so the Sveltos
+# CRDs stay even when Argo CD does the deploying.
+argo_adopted="$(env -u KCM_PROVIDERS TEST_MODE=adopted KSM_PROVIDER=ksm-argocd bash -c \
+    "source '$SCRIPTS_DIR/lib/common.sh'; echo \"\$KCM_PROVIDERS\"")"
+assert_eq "adopted mode on argocd keeps sveltos for the SveltosCluster" \
+    "projectsveltos argocd" "$argo_adopted"
+
+# The pods waited for and the logs collected follow the engine that is
+# installed, so a run on Argo CD looks at the argocd namespace and not at one
+# that was never created.
+assert_eq "sveltos runs in its own namespace" "projectsveltos" "$KSM_NAMESPACES"
+assert_eq "argocd replaces it, not adds to it" "argocd" \
+    "$(env -u KCM_PROVIDERS -u KSM_NAMESPACES KSM_PROVIDER=ksm-argocd bash -c \
+        "source '$SCRIPTS_DIR/lib/common.sh'; echo \"\$KSM_NAMESPACES\"")"
+assert_eq "adopted mode on argocd has both" "projectsveltos argocd" \
+    "$(env -u KCM_PROVIDERS -u KSM_NAMESPACES TEST_MODE=adopted KSM_PROVIDER=ksm-argocd bash -c \
+        "source '$SCRIPTS_DIR/lib/common.sh'; echo \"\$KSM_NAMESPACES\"")"
+
+# Flux is a subchart of KCM, not a provider chart, so it moves the adapter
+# switches without adding anything to the Management -- and under
+# self-management that leaves no provider at all, which is the point: nothing
+# there is a SveltosCluster.
+flux="$(env -u KCM_PROVIDERS -u KCM_ENABLE_ARGOCD_CTRL -u KCM_ENABLE_SVELTOS_CTRL -u KCM_ENABLE_FLUX_CTRL \
+    KSM_PROVIDER=flux bash -c \
+    "source '$SCRIPTS_DIR/lib/common.sh'; echo \"[\$KCM_PROVIDERS] \$KCM_ENABLE_FLUX_CTRL \$KCM_ENABLE_SVELTOS_CTRL\"")"
+assert_eq "flux enables no provider, with its adapter on and sveltos off" \
+    "[] true false" "$flux"
+assert_eq "and has no namespace of its own to wait for" "" \
+    "$(env -u KCM_PROVIDERS -u KSM_NAMESPACES KSM_PROVIDER=flux bash -c \
+        "source '$SCRIPTS_DIR/lib/common.sh'; echo \"\$KSM_NAMESPACES\"")"
+
+# The short name is what a run and a CI job are tagged with; the provider name
+# is what the manifests carry. A caller that already names the provider keeps
+# working.
+for pair in "sveltos ksm-projectsveltos" "argo ksm-argocd" "flux ksm-flux" \
+            "ksm-projectsveltos ksm-projectsveltos" "ksm-argocd ksm-argocd" "ksm-flux ksm-flux"; do
+    read -r given want <<< "$pair"
+    got="$(env KSM_PROVIDER="$given" bash -c \
+        "source '$SCRIPTS_DIR/lib/common.sh'; echo \"\$KSM_PROVIDER_NAME\"")"
+    assert_eq "KSM_PROVIDER=$given names $want" "$want" "$got"
+done
+
+if env KSM_PROVIDER=nope bash -c "source '$SCRIPTS_DIR/lib/common.sh'" >/dev/null 2>&1; then
+    assert_eq "an unknown adapter is refused" "rejected" "accepted"
+else
+    assert_eq "an unknown adapter is refused" "rejected" "rejected"
+fi
+
 assert_not_contains "aws provider is off" "$KCM_PROVIDERS" "cluster-api-provider-aws"
 assert_not_contains "azure provider is off" "$KCM_PROVIDERS" "cluster-api-provider-azure"
 # Only source mode uses the local registry; release mode pulls from the URL.

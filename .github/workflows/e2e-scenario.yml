@@ -51,7 +51,7 @@ on:
         required: false
         default: 'self'
       ksm_provider:
-        description: 'StateManagementProvider the MultiClusterServices name; empty means ksm-projectsveltos'
+        description: 'KSM adapter that deploys them: sveltos, argo or flux; empty means sveltos'
         type: string
         required: false
         default: ''
@@ -95,8 +95,8 @@ jobs:
       # Resolved by the caller: the run asks for a mode, a scenario that only
       # makes sense in one of them overrides it.
       TEST_MODE: ${{ inputs.test_mode }}
-      # Empty falls through to the default in common.sh. ksm-flux also makes
-      # deploy_kcm.sh turn the Flux adapter on in the chart.
+      # Empty falls through to the default in common.sh, which also derives the
+      # provider chart and the adapter from it.
       KSM_PROVIDER: ${{ inputs.ksm_provider }}
     steps:
       - uses: actions/checkout@v7

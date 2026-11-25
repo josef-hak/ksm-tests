@@ -255,43 +255,103 @@ fi
 export NAMESPACE KCM_HELM_RELEASE_NAME TEST_MODE
 export KUBECONFIG_MGMT KUBECONFIG_NAMED KUBECONFIG_CHILD
 
+# ── Which state management provider deploys the services ─────────────────────
+# KSM_PROVIDER is the short name a run and a CI job are tagged with. Three are
+# built into KCM, and the choice decides three things that have to agree: the
+# KCM provider chart that installs the engine, the adapter the KCM controller
+# runs, and the StateManagementProvider the MultiClusterServices name.
+#
+#   KSM_PROVIDER=argo ./scripts/deploy_k0rdent.sh
+#
+# runs the whole suite through Argo CD instead; no scenario changes.
+KSM_PROVIDER="${KSM_PROVIDER:-sveltos}"
+case "$KSM_PROVIDER" in
+    # The provider names are taken too, so a run or a caller that already
+    # names one keeps working.
+    sveltos|ksm-projectsveltos)
+        KSM_PROVIDER=sveltos
+        KSM_PROVIDER_NAME=ksm-projectsveltos
+        KSM_PROVIDER_COMPONENT=projectsveltos
+        KCM_ENABLE_SVELTOS_CTRL=true
+        KCM_ENABLE_ARGOCD_CTRL=false
+        KCM_ENABLE_FLUX_CTRL=false ;;
+    argo|ksm-argocd)
+        KSM_PROVIDER=argo
+        KSM_PROVIDER_NAME=ksm-argocd
+        KSM_PROVIDER_COMPONENT=argocd
+        # Nothing targets the Sveltos adapter in this mode, and with the
+        # provider chart gone its CRDs are not there for the adapter to poll.
+        KCM_ENABLE_SVELTOS_CTRL=false
+        KCM_ENABLE_ARGOCD_CTRL=true
+        KCM_ENABLE_FLUX_CTRL=false ;;
+    flux|ksm-flux)
+        KSM_PROVIDER=flux
+        KSM_PROVIDER_NAME=ksm-flux
+        # No provider chart of its own: Flux is a subchart of KCM, installed
+        # with it whichever adapter is in use, so there is no component to
+        # enable in the Management and no namespace to wait for.
+        KSM_PROVIDER_COMPONENT=""
+        KCM_ENABLE_SVELTOS_CTRL=false
+        KCM_ENABLE_ARGOCD_CTRL=false
+        KCM_ENABLE_FLUX_CTRL=true ;;
+    *)
+        die "Invalid KSM_PROVIDER='$KSM_PROVIDER'. Allowed values: sveltos argo flux" ;;
+esac
+export KSM_PROVIDER KSM_PROVIDER_NAME KSM_PROVIDER_COMPONENT
+export KCM_ENABLE_SVELTOS_CTRL KCM_ENABLE_ARGOCD_CTRL KCM_ENABLE_FLUX_CTRL
+
+is_sveltos_provider() { [[ "$KSM_PROVIDER" == "sveltos" ]]; }
+is_argo_provider()    { [[ "$KSM_PROVIDER" == "argo" ]]; }
+is_flux_provider()    { [[ "$KSM_PROVIDER" == "flux" ]]; }
+
+# TEST_MODE=adopted needs the Sveltos CRDs for the SveltosCluster object the
+# adopted-cluster template creates, whoever deploys the services.
+ADOPTED_PROVIDERS="projectsveltos"
+if [[ -n "$KSM_PROVIDER_COMPONENT" && "$KSM_PROVIDER_COMPONENT" != "projectsveltos" ]]; then
+    ADOPTED_PROVIDERS+=" $KSM_PROVIDER_COMPONENT"
+fi
+
 # ── What KCM actually installs ───────────────────────────────────────────────
 # Only these stay in the Release and Management; every provider dropped is a
 # Helm chart KCM need not reconcile, which is most of the install time. Under
-# self-management nothing is provisioned at all, so sveltos is the whole list
-# and no cluster template is needed.
+# self-management nothing is provisioned at all, so the state management
+# provider is the whole list and no cluster template is needed.
 #
 # A provisioned cluster needs its infra provider and k0smotron on top; the
 # lists are the ones catalog's scripts/config/<mode>-kcm-management.yaml
 # carries, which is where its own e2e gets them.
 case "$TEST_MODE" in
     aws|azure|gcp)
-        KCM_PROVIDERS="${KCM_PROVIDERS:-cluster-api-provider-$TEST_MODE cluster-api-provider-k0sproject-k0smotron projectsveltos}"
+        KCM_PROVIDERS="${KCM_PROVIDERS:-cluster-api-provider-$TEST_MODE cluster-api-provider-k0sproject-k0smotron $KSM_PROVIDER_COMPONENT}"
         KCM_CLUSTER_TEMPLATES="${KCM_CLUSTER_TEMPLATES:-$TEST_MODE-standalone-cp}" ;;
     # An adopted cluster is a SveltosCluster pointed at a kubeconfig -- no
-    # infra provider, so projectsveltos is still the whole list, but the
+    # infra provider, but the Sveltos CRDs have to be there for that object
+    # even when another provider deploys to the cluster, and the
     # ClusterTemplate has to be installed for the ClusterDeployment to
     # reference it.
     adopted)
-        KCM_PROVIDERS="${KCM_PROVIDERS:-projectsveltos}"
+        KCM_PROVIDERS="${KCM_PROVIDERS:-$ADOPTED_PROVIDERS}"
         KCM_CLUSTER_TEMPLATES="${KCM_CLUSTER_TEMPLATES:-adopted-cluster}" ;;
     *)
-        KCM_PROVIDERS="${KCM_PROVIDERS:-projectsveltos}"
+        KCM_PROVIDERS="${KCM_PROVIDERS:-$KSM_PROVIDER_COMPONENT}"
         KCM_CLUSTER_TEMPLATES="${KCM_CLUSTER_TEMPLATES:-}" ;;
 esac
 export KCM_PROVIDERS KCM_CLUSTER_TEMPLATES
 
-# The StateManagementProvider every MultiClusterService names. ksm-flux is
-# KCM's Flux adapter: one HelmRelease per service instead of a Sveltos
-# Profile. It is opt-in in the chart, so deploy_kcm.sh has to turn it on --
-# and only a KCM build that has the adapter will do.
-KSM_PROVIDER="${KSM_PROVIDER:-ksm-projectsveltos}"
-export KSM_PROVIDER
-
-# is_flux_provider -- the services go through KCM's Flux adapter.
-is_flux_provider() {
-    [[ "$KSM_PROVIDER" == "ksm-flux" ]]
-}
+# Namespaces the state management engines run in -- what to wait for after the
+# install and whose logs to collect when something fails. KCM gives each one a
+# namespace named after its provider chart, so the list is just the state
+# management entries of KCM_PROVIDERS: 'projectsveltos', 'argocd', or both
+# under adopted mode on Argo CD. Flux has none of its own: it is a subchart of
+# KCM and shares kcm-system with it.
+KSM_NAMESPACES=""
+for _p in $KCM_PROVIDERS; do
+    case "$_p" in
+        projectsveltos|argocd) KSM_NAMESPACES+="${KSM_NAMESPACES:+ }$_p" ;;
+    esac
+done
+unset _p
+export KSM_NAMESPACES
 
 # ── Scenario under test ──────────────────────────────────────────────────────
 # A scenario is a file in test_scenarios/ describing the services and their

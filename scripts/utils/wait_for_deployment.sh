@@ -10,6 +10,8 @@ set -euo pipefail
 #   WAIT_FOR_RUNNING=true    stop once all pods are Running (not necessarily Ready)
 #   WAIT_FOR_CREATING=true   stop once all pods are at least ContainerCreating
 #   WAIT_FOR_PODS="a b"      also require pods whose names contain these substrings
+#   POD_SELECTOR="app=foo"   only the pods matching this label selector, for a
+#                            namespace that holds more than the thing waited on
 #   PODS_TIMEOUT=900         seconds before giving up
 #   POD_TICK_INTERVAL=30     seconds between heartbeats while nothing changes
 #
@@ -97,10 +99,20 @@ pod_changes() {
     ' <(printf '%s\n' "$2") <(printf '%s\n' "$1") | sort
 }
 
-step "Waiting for pods in namespace '$NAMESPACE' ($KUBECONFIG)"
+# A selector narrows both the waiting and the table: kcm-system holds every
+# KCM component, and a step that waits on two of them should say so rather
+# than list the other eight.
+selector_args=()
+scope="namespace '$NAMESPACE'"
+if [[ -n "${POD_SELECTOR:-}" ]]; then
+    selector_args=(-l "$POD_SELECTOR")
+    scope="'$POD_SELECTOR' in '$NAMESPACE'"
+fi
+
+step "Waiting for pods in $scope ($KUBECONFIG)"
 
 while (( SECONDS < TIMEOUT )); do
-    pods_json=$(kubectl get pods -n "$NAMESPACE" -o json 2>/dev/null || true)
+    pods_json=$(kubectl get pods -n "$NAMESPACE" "${selector_args[@]}" -o json 2>/dev/null || true)
 
     if [[ -z "$pods_json" ]]; then
         log "No pods found or error getting pods"
@@ -114,7 +126,7 @@ while (( SECONDS < TIMEOUT )); do
 
     pod_count=$(jq '.items | length' <<< "$pods_json")
     if [[ "$pod_count" -eq 0 ]]; then
-        log "⏳ No pods in '$NAMESPACE' yet"
+        log "⏳ No pods in $scope yet"
         sleep 3
         continue
     fi
@@ -171,13 +183,13 @@ while (( SECONDS < TIMEOUT )); do
       ] | length' <<< "$pods_json")"
 
     if [[ "${WAIT_FOR_RUNNING:-}" == "true" ]]; then
-        $all_running && { ok "All pods running in '$NAMESPACE'"; pod_table "$summary"; break; }
+        $all_running && { ok "All pods running in $scope"; pod_table "$summary"; break; }
         waiting_for="running"
     elif [[ "${WAIT_FOR_CREATING:-}" == "true" ]]; then
-        $all_creating && { ok "All pods at least ContainerCreating in '$NAMESPACE'"; pod_table "$summary"; break; }
+        $all_creating && { ok "All pods at least ContainerCreating in $scope"; pod_table "$summary"; break; }
         waiting_for="creating"
     else
-        $all_ready && { ok "All pods are ready in '$NAMESPACE'"; pod_table "$summary"; break; }
+        $all_ready && { ok "All pods are ready in $scope"; pod_table "$summary"; break; }
         waiting_for="ready"
     fi
 
@@ -204,8 +216,8 @@ while (( SECONDS < TIMEOUT )); do
 done
 
 if (( SECONDS >= TIMEOUT )); then
-    warn "Timeout after ${TIMEOUT}s: pods in '$NAMESPACE' are still not ready"
-    kubectl get pods -n "$NAMESPACE" -o wide >&2 || true
+    warn "Timeout after ${TIMEOUT}s: pods in $scope are still not ready"
+    kubectl get pods -n "$NAMESPACE" "${selector_args[@]}" -o wide >&2 || true
     for row in $(jq -r '.items[] | @base64' <<< "$pods_json"); do
         _jq() { echo "${row}" | b64decode | jq -r "${1}"; }
         pod_name=$(_jq '.metadata.name')

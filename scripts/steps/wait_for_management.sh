@@ -49,11 +49,22 @@ else
     warn "$RELEASE_ENV not found -- skipping the ClusterTemplate check"
 fi
 
-step "Waiting for the projectsveltos pods"
-if kube get namespace projectsveltos >/dev/null 2>&1; then
-    NAMESPACE=projectsveltos "$SCRIPTS_DIR/utils/wait_for_deployment.sh"
-else
-    warn "Namespace 'projectsveltos' does not exist -- skipping"
+for ns in $KSM_NAMESPACES; do
+    step "Waiting for the $ns pods"
+    if kube get namespace "$ns" >/dev/null 2>&1; then
+        NAMESPACE="$ns" "$SCRIPTS_DIR/utils/wait_for_deployment.sh"
+    else
+        warn "Namespace '$ns' does not exist -- skipping"
+    fi
+done
+
+# Flux has no namespace of its own -- it is a subchart of KCM and shares
+# kcm-system with everything else -- so the selector is what keeps this step
+# about Flux rather than about the whole install.
+if is_flux_provider; then
+    step "Waiting for the Flux pods"
+    POD_SELECTOR='app in (helm-controller,source-controller)' \
+        "$SCRIPTS_DIR/utils/wait_for_deployment.sh"
 fi
 
 kube get management kcm

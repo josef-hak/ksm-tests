@@ -13,6 +13,15 @@ controller:
   createManagement: false
   createRelease: false
   createTemplates: false
+  # Which state management adapter runs. All three are built into the
+  # controller; KSM_PROVIDER picks one and common.sh renders the set from it.
+  enableSveltosCtrl: ${KCM_ENABLE_SVELTOS_CTRL}
+  enableArgoCDCtrl: ${KCM_ENABLE_ARGOCD_CTRL}
+  enableFluxCtrl: ${KCM_ENABLE_FLUX_CTRL}
+  # What a ClusterDeployment or MultiClusterService that names no provider
+  # gets. The scenarios all name one; this covers a ClusterDeployment's own
+  # serviceSpec, so a run is entirely on one adapter.
+  defaultStateManagementProvider: ${KSM_PROVIDER_NAME}
   templatesRepoURL: ${TEMPLATES_REPO_URL}
   insecureRegistry: ${INSECURE_REGISTRY}
   defaultHelmTimeout: 20m

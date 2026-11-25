@@ -53,16 +53,6 @@ else
     helm_args+=(--version "$KCM_VERSION")
 fi
 
-if is_flux_provider; then
-    step "Enabling KCM's Flux adapter (KSM_PROVIDER=$KSM_PROVIDER)"
-    overlay="$ENVDIR/kcm-values-flux.rendered.yaml"
-    envsubst < "$CONFIG_DIR/kcm-values-flux.yaml" > "$overlay"
-    # shellcheck disable=SC2016 # $item is a yq variable, not a shell one
-    yq eval-all '. as $item ireduce ({}; . * $item)' "$VALUES_FILE" "$overlay" \
-        > "$VALUES_FILE.merged"
-    mv "$VALUES_FILE.merged" "$VALUES_FILE"
-fi
-
 step "Rendered values ($VALUES_FILE)"
 cat "$VALUES_FILE"
 

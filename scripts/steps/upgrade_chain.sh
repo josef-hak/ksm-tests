@@ -48,8 +48,20 @@ current_version() {
 
 current_status() { cut -d'|' -f3 <<< "$(release_info "$SVC" "$NS")"; }
 
-# history_versions -- every chart version this release has ever been on.
+# history_versions -- every chart version this service has ever been on, which
+# is what a stepwise chain is checked against: the end version alone cannot
+# tell a chain that stepped through its hops from one that jumped them.
+#
+# Helm keeps that in the release history; Argo CD keeps it on its Application,
+# one entry per revision it synced.
 history_versions() {
+    if [[ "${KSM_PROVIDER:-}" == "ksm-argocd" ]]; then
+        kube get applications -n "${ARGOCD_NAMESPACE:-argocd}" \
+            -l "ksm.k0rdent.mirantis.com/service-name=$SVC,ksm.k0rdent.mirantis.com/service-namespace=$NS" \
+            -o json 2>/dev/null \
+            | jq -r '.items[0].status.history[]?.revision' 2>/dev/null
+        return
+    fi
     helm_child history "$SVC" -n "$NS" -o json 2>/dev/null \
         | jq -r '.[].chart' 2>/dev/null | while read -r c; do chart_version "$c"; done
 }
@@ -103,7 +115,7 @@ for (( i = 0; i < STEPS; i++ )); do
 
     if [[ "$settled" != "true" ]]; then
         { helm_child history "$SVC" -n "$NS" 2>&1 | tail -6
-          kube get serviceset -n "$NAMESPACE" -o yaml | head -60
+          kube get serviceset -n "$NAMESPACE" -o yaml | head -60 || true
           kcm_errors 10m; } >&2
         die "'$SVC' never reached $target -- it is on $(current_version) ($(current_status))"
     fi
@@ -122,6 +134,15 @@ for (( i = 0; i < STEPS; i++ )); do
     fi
 done
 
+# What the provider recorded about the steps, for the log. Under Argo CD there
+# is no Helm release to ask, so its Application's sync history stands in.
 step "Release history"
-helm_child history "$SVC" -n "$NS" 2>&1 | tail -8
+if [[ "${KSM_PROVIDER:-}" == "ksm-argocd" ]]; then
+    kube get applications -n "${ARGOCD_NAMESPACE:-argocd}" \
+        -l "ksm.k0rdent.mirantis.com/service-name=$SVC,ksm.k0rdent.mirantis.com/service-namespace=$NS" \
+        -o json 2>&1 \
+        | jq -r '.items[0].status.history[]? | "\(.id)\t\(.revision)\t\(.deployStartedAt)"' | tail -8
+else
+    helm_child history "$SVC" -n "$NS" 2>&1 | tail -8
+fi
 ok "Every upgrade step behaved as the chain says it should"

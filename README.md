@@ -78,15 +78,32 @@ what was not.
 | `gcp` | `GCP_B64ENCODED_CREDENTIALS`, `GCP_PROJECT`, `GCP_REGION` |
 
 ## Which adapter deploys them
-`KSM_PROVIDER` names the `StateManagementProvider` every `MultiClusterService`
-is routed to. The default, `ksm-projectsveltos`, is KCM's built-in Sveltos
-adapter.
+`KSM_PROVIDER` picks one of KCM's three built-in KSM adapters. The same
+scenarios run through whichever is named — no scenario changes:
 
-`KSM_PROVIDER=ksm-flux` runs the same scenarios through KCM's Flux adapter —
-one `HelmRelease` per service instead of a Sveltos `Profile`. It is opt-in in
-the chart, so `deploy_kcm.sh` also installs KCM with `controller.enableFluxCtrl`
-on; a build without the adapter has no `ksm-flux` provider and every
-`ServiceSet` would sit unreconciled.
+| `KSM_PROVIDER` | `StateManagementProvider` | deploys a service as |
+|---|---|---|
+| `sveltos` (default) | `ksm-projectsveltos` | a Sveltos `Profile` |
+| `argo` | `ksm-argocd` | an Argo CD `Application` |
+| `flux` | `ksm-flux` | a Flux `HelmRelease` |
+
+The name decides three things that have to agree, and `common.sh` derives all
+of them from it: the KCM provider chart that installs the engine, the adapter
+the KCM controller runs, and the provider the `MultiClusterService`s name. A
+build without the adapter named has no such provider and every `ServiceSet`
+would sit unreconciled.
+
+Sveltos and Argo CD come as provider charts, each in a namespace of its own.
+Flux is a subchart of KCM, so it adds no provider to the `Management` at all —
+under self-management that leaves the provider list empty, which is the point:
+nothing there is a `SveltosCluster`. `TEST_MODE=adopted` always keeps
+`projectsveltos`, because the adoption is what uses it.
+
+One check differs. Argo CD renders a chart and applies the result, so there is
+no helm release to read: under `argo` the steps that assert on one read the
+same three facts off its `Application` instead, and the chain scenarios cannot
+check which versions an upgrade passed through — that is said in the log
+rather than passed over quietly.
 
 A run picks one mode for everything; a scenario that only makes sense in one
 of them says so with `testMode:` in its own file, and that wins. `e2e-serial.yml`
@@ -182,7 +199,7 @@ eval "$(./scripts/kcm_default.sh --export)"  # the build this repo tests, from k
 # export TEST_MODE=self (default); "adopted" - second k0s cluster, adopted
 #                                  # TODO later: "aws, azure, gcp"
 # export KCM_MODE=release (default); "source" - build and deploy kcm from SRC_URL git, KCM ref (tag, branch, sha)
-# export KSM_PROVIDER=ksm-projectsveltos (default); "ksm-flux" - KCM's Flux adapter
+# export KSM_PROVIDER=sveltos (default); "argo" or "flux" - KCM's other adapters
 ./scripts/deploy_k0rdent.sh
 ~~~
 

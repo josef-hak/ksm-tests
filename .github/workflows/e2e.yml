@@ -43,6 +43,15 @@ on:
         type: string
         required: false
         default: 'self'
+      KSM_PROVIDER:
+        description: >-
+          KSM adapter that deploys the services, options: sveltos, argo, flux
+          (empty = sveltos). Each decides the KCM provider chart that installs
+          the engine and the adapter the controller runs, so only a build that
+          has that adapter will accept it.
+        type: string
+        required: false
+        default: ''
       scenarios:
         description: >-
           Testing scenarios, options: 101_basic, 102_reinstall, 201_svcdep,
@@ -50,14 +59,6 @@ on:
           401_mcsdep_valid, 402_mcsdep_invalid, 403_mcsdep_diamond,
           501_no_chain, 502_chain_boundary, 503_direct_chain,
           504_stepwise_chain (empty = all)
-        type: string
-        required: false
-        default: ''
-      KSM_PROVIDER:
-        description: >-
-          StateManagementProvider the MultiClusterServices name. Empty means
-          ksm-projectsveltos; ksm-flux also turns KCM's Flux adapter on in the
-          chart, which only a build that has it will accept.
         type: string
         required: false
         default: ''
@@ -106,11 +107,11 @@ on:
         required: false
         default: 'self'
       KSM_PROVIDER:
-        description: 'StateManagementProvider, options: ksm-projectsveltos, ksm-flux'
+        description: 'KSM adapter that deploys the services, options: sveltos, argo, flux'
         required: false
         type: choice
-        options: [ksm-projectsveltos, ksm-flux]
-        default: 'ksm-projectsveltos'
+        options: [sveltos, argo, flux]
+        default: 'sveltos'
       scenarios:
         # test_ci_matches_entrypoints.sh asserts this list stays complete.
         description: >-

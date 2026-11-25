@@ -379,7 +379,7 @@ EOF
     cat >> "$out" <<EOF
   serviceSpec:
     provider:
-      name: $KSM_PROVIDER
+      name: $KSM_PROVIDER_NAME
 EOF
     if [[ "$TEST_MODE" == "self" ]]; then
         cat >> "$out" <<EOF

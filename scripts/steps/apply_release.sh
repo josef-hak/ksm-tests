@@ -40,7 +40,13 @@ for provider in "${providers[@]}"; do
 done
 
 TRIMMED_RELEASE="$ENVDIR/release.trimmed.yaml"
-yq ".spec.providers |= map(select($select_expr))" "$RELEASE_FILE" > "$TRIMMED_RELEASE"
+if [[ -z "$select_expr" ]]; then
+    # No providers at all: select() needs an expression, so empty the list
+    # outright rather than hand yq `map(select())`.
+    yq '.spec.providers = []' "$RELEASE_FILE" > "$TRIMMED_RELEASE"
+else
+    yq ".spec.providers |= map(select($select_expr))" "$RELEASE_FILE" > "$TRIMMED_RELEASE"
+fi
 
 RELEASE_NAME="$(yq -r '.metadata.name' "$TRIMMED_RELEASE")"
 [[ -n "$RELEASE_NAME" && "$RELEASE_NAME" != "null" ]] || die "Could not read the Release name from $TRIMMED_RELEASE"
