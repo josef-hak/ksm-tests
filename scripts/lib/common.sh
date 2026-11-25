@@ -288,7 +288,13 @@ export KSM_PROVIDER
 # in the file's own comment. Set SVELTOS_VALUES= to drop the config block and
 # install the chart exactly as KCM would on its own.
 SVELTOS_VALUES="${SVELTOS_VALUES-$CONFIG_DIR/sveltos-values.yaml}"
-export SVELTOS_VALUES
+# The chart Deployments it gives no `enabled` flag and KCM does not need, which
+# steps/scale_sveltos.sh renders at zero replicas -- addon-controller and
+# sc-manager are the two that stay. The sveltos agent is not listed because it
+# is not in the chart: classifier-manager places it, and at zero replicas it
+# places nothing. Empty leaves the whole chart running.
+SVELTOS_SCALE_ZERO="${SVELTOS_SCALE_ZERO-classifier-manager event-manager hc-manager}"
+export SVELTOS_VALUES SVELTOS_SCALE_ZERO
 
 # ── Scenario under test ──────────────────────────────────────────────────────
 # A scenario is a file in test_scenarios/ describing the services and their
@@ -306,6 +312,10 @@ export SCENARIOS_DIR SCENARIO SCENARIO_SLUG SERVICES_FILE MCS_NAME
 MANAGEMENT_TIMEOUT="${MANAGEMENT_TIMEOUT:-1500}"   # 25 min
 TEMPLATES_TIMEOUT="${TEMPLATES_TIMEOUT:-900}"      # 15 min
 PODS_TIMEOUT="${PODS_TIMEOUT:-900}"                # 15 min
+# How long a provider's HelmRelease may take to show up after the Management is
+# applied. KCM creates it on the first reconcile, so this is seconds; the budget
+# is only there so a provider that never arrives fails with a reason.
+HELMRELEASE_TIMEOUT="${HELMRELEASE_TIMEOUT:-300}"  # 5 min
 MCS_TIMEOUT="${MCS_TIMEOUT:-900}"                  # 15 min
 # Provisioning and deprovisioning at a cloud provider, which is slower than
 # anything else here -- and the removal needs the same budget as the creation.
@@ -321,6 +331,7 @@ else
     REMOVE_TIMEOUT="${REMOVE_TIMEOUT:-60}"         # 1 min
 fi
 export MANAGEMENT_TIMEOUT TEMPLATES_TIMEOUT PODS_TIMEOUT MCS_TIMEOUT REMOVE_TIMEOUT
+export HELMRELEASE_TIMEOUT
 export CLUSTER_TIMEOUT
 
 # ── Assertions ───────────────────────────────────────────────────────────────

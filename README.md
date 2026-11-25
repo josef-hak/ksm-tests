@@ -181,6 +181,14 @@ not publish and the two KCM never reaches -- and says in the file what the rest
 are still there for. `SVELTOS_VALUES` names another file, or nothing
 (`SVELTOS_VALUES=`) for the chart's own defaults.
 
+The components the chart has no flag for are rendered at zero replicas instead,
+by `scripts/steps/scale_sveltos.sh`: it adds a kustomize postRenderer to the
+provider's `HelmRelease` between the `Management` and the wait, so they are
+never started. `SVELTOS_SCALE_ZERO` is the list, and empty leaves the whole
+chart running. What is left is addon-controller and sc-manager -- and in the
+managed cluster nothing at all, since the sveltos agent is placed by
+classifier-manager.
+
 ### Run scenario
 ~~~bash
 # TEST_MODE has to match the one deploy_k0rdent.sh built, and does by default

@@ -53,6 +53,9 @@ fi
 "$SCRIPTS_DIR/steps/apply_release.sh"
 "$SCRIPTS_DIR/steps/wait_for_templates.sh"
 "$SCRIPTS_DIR/steps/apply_management.sh"
+# Between the two: the Management is what makes KCM create the provider's
+# HelmRelease, and the patch has to be in before flux renders it.
+"$SCRIPTS_DIR/steps/scale_sveltos.sh"
 "$SCRIPTS_DIR/steps/wait_for_management.sh"
 # A no-op unless TEST_MODE is adopted. Last: it needs the adopted-cluster
 # ClusterTemplate, which only goes valid once the Management exists.

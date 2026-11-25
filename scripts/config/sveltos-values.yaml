@@ -36,5 +36,8 @@ projectsveltos:
 # and sc-manager (it is what sets SveltosCluster status.ready, which the adopted
 # ClusterDeployment waits for); the other three were never seen to do anything
 # here. None of the five has an `enabled` flag in chart 1.17.0 -- the Deployments
-# in templates/deployment.yaml are unconditional, only the four above are
-# guarded -- so trimming further is an upstream ask, not a value to set here.
+# in templates/deployment.yaml are unconditional and their replica count is a
+# literal 1, only the four above are guarded -- so no value here can switch them
+# off. steps/scale_sveltos.sh patches the unused ones to zero replicas in the
+# HelmRelease instead, which is as close to off as the chart gets; an `enabled`
+# flag for them is an upstream ask.
