@@ -115,7 +115,7 @@ for (( i = 0; i < STEPS; i++ )); do
 
     if [[ "$settled" != "true" ]]; then
         { helm_child history "$SVC" -n "$NS" 2>&1 | tail -6
-          kube get serviceset -n "$NAMESPACE" -o yaml | head -60
+          kube get serviceset -n "$NAMESPACE" -o yaml | head -60 || true
           kcm_errors 10m; } >&2
         die "'$SVC' never reached $target -- it is on $(current_version) ($(current_status))"
     fi
