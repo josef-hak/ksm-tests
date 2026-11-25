@@ -86,6 +86,14 @@ for pair in "sveltos ksm-projectsveltos" "argo ksm-argocd" "flux ksm-flux" \
     assert_eq "KSM_PROVIDER=$given names $want" "$want" "$got"
 done
 
+# Nothing may compare KSM_PROVIDER to a provider name. It holds the short one,
+# and such a test silently takes the wrong branch -- which is how the chain
+# scenarios ended up running `helm history` against Argo CD and dying on
+# "release: not found" after the upgrade they were checking had passed.
+stale_compare="$(grep -rn 'KSM_PROVIDER[^=]*==[^=]*ksm-' \
+    "$SCRIPTS_DIR"/lib/*.sh "$SCRIPTS_DIR"/steps/*.sh "$SCRIPTS_DIR"/utils/*.sh "$SCRIPTS_DIR"/*.sh 2>/dev/null || true)"
+assert_eq "no script compares KSM_PROVIDER to a provider name" "" "$stale_compare"
+
 if env KSM_PROVIDER=nope bash -c "source '$SCRIPTS_DIR/lib/common.sh'" >/dev/null 2>&1; then
     assert_eq "an unknown adapter is refused" "rejected" "accepted"
 else

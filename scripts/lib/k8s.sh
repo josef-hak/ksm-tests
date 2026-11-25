@@ -27,7 +27,7 @@ helm_child() {
 # them. Argo CD renders the chart and applies the manifests -- there is no
 # release to list, and its Application carries the same three.
 release_info() {
-    if [[ "${KSM_PROVIDER:-}" == "argo" ]]; then
+    if is_argo_provider; then
         argocd_release_info "$1" "$2"
         return
     fi

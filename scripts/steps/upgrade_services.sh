@@ -98,7 +98,7 @@ ROLLED_BACK_TO="$(upgrade_expect_field rolledBackTo)"
 settled=false
 elapsed=0
 
-if [[ -n "$ROLLED_BACK_TO" && "${KSM_PROVIDER:-}" == "ksm-argocd" ]]; then
+if [[ -n "$ROLLED_BACK_TO" ]] && is_argo_provider; then
     # Argo CD has no atomic upgrade to undo. The invalid manifest is rejected
     # by the server-side diff before anything is applied, so what was running
     # keeps running and there is no failed revision to roll back from. The
@@ -236,7 +236,7 @@ while read -r name; do
 done < <(upgrade_expect_list rolledOut)
 
 # ── What must have been rolled back ──────────────────────────────────────────
-if [[ -n "$ROLLED_BACK_TO" && "${KSM_PROVIDER:-}" == "ksm-argocd" ]]; then
+if [[ -n "$ROLLED_BACK_TO" ]] && is_argo_provider; then
     name="$EXPECT_FAILED"
     ns="$(service_field "$name" namespace)"
     live="$(argocd_live_revision "$name" "$ns")"

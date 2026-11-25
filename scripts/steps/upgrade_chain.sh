@@ -55,7 +55,7 @@ current_status() { cut -d'|' -f3 <<< "$(release_info "$SVC" "$NS")"; }
 # Helm keeps that in the release history; Argo CD keeps it on its Application,
 # one entry per revision it synced.
 history_versions() {
-    if [[ "${KSM_PROVIDER:-}" == "ksm-argocd" ]]; then
+    if is_argo_provider; then
         kube get applications -n "${ARGOCD_NAMESPACE:-argocd}" \
             -l "ksm.k0rdent.mirantis.com/service-name=$SVC,ksm.k0rdent.mirantis.com/service-namespace=$NS" \
             -o json 2>/dev/null \
@@ -137,7 +137,7 @@ done
 # What the provider recorded about the steps, for the log. Under Argo CD there
 # is no Helm release to ask, so its Application's sync history stands in.
 step "Release history"
-if [[ "${KSM_PROVIDER:-}" == "ksm-argocd" ]]; then
+if is_argo_provider; then
     kube get applications -n "${ARGOCD_NAMESPACE:-argocd}" \
         -l "ksm.k0rdent.mirantis.com/service-name=$SVC,ksm.k0rdent.mirantis.com/service-namespace=$NS" \
         -o json 2>&1 \
