@@ -176,8 +176,9 @@ eval "$(./scripts/kcm_default.sh --export)"  # the build this repo tests, from k
 
 Which sveltos gets installed is `scripts/config/sveltos-values.yaml`: Helm values
 for the projectsveltos provider chart, carried into the `Management` object. It
-turns off the components whose sources k0rdent does not publish, so a run only
-exercises open-source sveltos. `SVELTOS_VALUES` names another file, or nothing
+turns off every component the chart lets it -- the two whose sources k0rdent does
+not publish and the two KCM never reaches -- and says in the file what the rest
+are still there for. `SVELTOS_VALUES` names another file, or nothing
 (`SVELTOS_VALUES=`) for the chart's own defaults.
 
 ### Run scenario

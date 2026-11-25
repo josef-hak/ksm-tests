@@ -7,10 +7,19 @@
 # helm reads it as a value of the wrapper, which uses none, and the run passes
 # with nothing turned off.
 #
-# This suite tests what k0rdent ships as open source, so the components whose
-# sources are not published are off here. SVELTOS_VALUES names another file;
-# SVELTOS_VALUES= (empty) drops the config block and takes the chart's defaults.
+# Off here is every component the chart lets us turn off and KCM does not need:
+# two whose sources k0rdent does not publish, two the scenarios never reach.
+# SVELTOS_VALUES names another file; SVELTOS_VALUES= (empty) drops the config
+# block and takes the chart's defaults.
 projectsveltos:
+  # AccessRequest / RoleRequest: nothing in KCM or in a scenario asks sveltos
+  # for a kubeconfig or a role in a managed cluster.
+  accessManager:
+    enabled: false
+  # Sharding spreads managed clusters over several addon-controller instances
+  # by a shard-key annotation. KCM sets none, so every cluster is shard "".
+  shardController:
+    enabled: false
   # An MCP server for LLM clients; github.com/projectsveltos/mcp-server does not
   # exist publicly, and nothing in a test run talks to it.
   mcpServer:
@@ -20,3 +29,12 @@ projectsveltos:
   # collects its own logs with collect_logs.sh.
   techsupportController:
     enabled: false
+
+# What is left is addon-controller, classifier-manager, event-manager,
+# hc-manager, sc-manager and the sveltos-agent classifier-manager places. KCM
+# needs addon-controller (the ClusterSummary rollouts every scenario asserts)
+# and sc-manager (it is what sets SveltosCluster status.ready, which the adopted
+# ClusterDeployment waits for); the other three were never seen to do anything
+# here. None of the five has an `enabled` flag in chart 1.17.0 -- the Deployments
+# in templates/deployment.yaml are unconditional, only the four above are
+# guarded -- so trimming further is an upstream ask, not a value to set here.
