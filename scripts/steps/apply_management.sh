@@ -22,10 +22,26 @@ require_env RELEASE_NAME
 
 export KUBECONFIG="$KUBECONFIG_MGMT"
 
+# The sveltos values, if there are any: a file with nothing but comments is the
+# same as no file and must not render an empty config block. The rationale
+# belongs in the file, not in a Kubernetes object, so the comments are stripped.
+SVELTOS_CONFIG=""
+if [[ -n "$SVELTOS_VALUES" && -f "$SVELTOS_VALUES" ]]; then
+    SVELTOS_CONFIG="$(yq -P '... comments="" | select(. != null)' "$SVELTOS_VALUES")"
+    # yq leads a document it built from nothing with a blank line, and an
+    # indented blank line is trailing whitespace in the manifest.
+    SVELTOS_CONFIG="$(sed '/^[[:space:]]*$/d' <<< "$SVELTOS_CONFIG")"
+fi
+
 read -ra providers <<< "$KCM_PROVIDERS"
 MANAGEMENT_PROVIDERS=""
 for provider in "${providers[@]}"; do
     MANAGEMENT_PROVIDERS+="  - name: $provider"$'\n'
+    if [[ "$provider" == "projectsveltos" && -n "$SVELTOS_CONFIG" ]]; then
+        MANAGEMENT_PROVIDERS+="    config:"$'\n'
+        # shellcheck disable=SC2001 # per-line prefix, not a substring replace
+        MANAGEMENT_PROVIDERS+="$(sed 's/^/      /' <<< "$SVELTOS_CONFIG")"$'\n'
+    fi
 done
 # envsubst keeps the trailing newline; drop it so the YAML stays tidy.
 MANAGEMENT_PROVIDERS="${MANAGEMENT_PROVIDERS%$'\n'}"

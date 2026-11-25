@@ -1,0 +1,43 @@
+# Helm values for the projectsveltos provider chart, carried into
+# Management.spec.providers[name=projectsveltos].config by apply_management.sh.
+#
+# The chart KCM installs is a wrapper declaring the upstream projectsveltos
+# chart as a dependency of the same name, so every component value has to be
+# nested one level under `projectsveltos:`. A top-level key is not rejected --
+# helm reads it as a value of the wrapper, which uses none, and the run passes
+# with nothing turned off.
+#
+# Off here is every component the chart lets us turn off and KCM does not need:
+# two whose sources k0rdent does not publish, two the scenarios never reach.
+# SVELTOS_VALUES names another file; SVELTOS_VALUES= (empty) drops the config
+# block and takes the chart's defaults.
+projectsveltos:
+  # AccessRequest / RoleRequest: nothing in KCM or in a scenario asks sveltos
+  # for a kubeconfig or a role in a managed cluster.
+  accessManager:
+    enabled: false
+  # Sharding spreads managed clusters over several addon-controller instances
+  # by a shard-key annotation. KCM sets none, so every cluster is shard "".
+  shardController:
+    enabled: false
+  # An MCP server for LLM clients; github.com/projectsveltos/mcp-server does not
+  # exist publicly, and nothing in a test run talks to it.
+  mcpServer:
+    enabled: false
+  # Collects logs on a schedule for a Techsupport object;
+  # github.com/projectsveltos/techsupport does not exist publicly, and the suite
+  # collects its own logs with collect_logs.sh.
+  techsupportController:
+    enabled: false
+
+# What is left is addon-controller, classifier-manager, event-manager,
+# hc-manager, sc-manager and the sveltos-agent classifier-manager places. KCM
+# needs addon-controller (the ClusterSummary rollouts every scenario asserts)
+# and sc-manager (it is what sets SveltosCluster status.ready, which the adopted
+# ClusterDeployment waits for); the other three were never seen to do anything
+# here. None of the five has an `enabled` flag in chart 1.17.0 -- the Deployments
+# in templates/deployment.yaml are unconditional and their replica count is a
+# literal 1, only the four above are guarded -- so no value here can switch them
+# off. steps/scale_sveltos.sh patches the unused ones to zero replicas in the
+# HelmRelease instead, which is as close to off as the chart gets; an `enabled`
+# flag for them is an upstream ask.

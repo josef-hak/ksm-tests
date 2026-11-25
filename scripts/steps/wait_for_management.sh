@@ -52,6 +52,10 @@ fi
 step "Waiting for the projectsveltos pods"
 if kube get namespace projectsveltos >/dev/null 2>&1; then
     NAMESPACE=projectsveltos "$SCRIPTS_DIR/utils/wait_for_deployment.sh"
+    # What the provider actually installed, in kubectl's own format: the wait
+    # prints a summary table, this is the restart counts and the component list
+    # the sveltos values are judged by.
+    kube get pods -n projectsveltos
 else
     warn "Namespace 'projectsveltos' does not exist -- skipping"
 fi

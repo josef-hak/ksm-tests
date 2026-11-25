@@ -151,4 +151,17 @@ if ! wait_for_condition ClusterDeployment "$ADOPTED_CLD_NAME" "$NAMESPACE" Ready
 fi
 
 kube get clusterdeployment -n "$NAMESPACE"
+
+# What sveltos put in the adopted cluster, as deploy_cloud_cluster.sh does for a
+# provisioned one and catalog's deploy_cld.sh for both: the agent and the
+# drift-detection manager run here, not in the management cluster, so this is
+# the only place the run shows them.
+step "Waiting for the adopted cluster's projectsveltos pods"
+if kube_child get namespace projectsveltos >/dev/null 2>&1; then
+    KUBECONFIG="$KUBECONFIG_ADOPTED" NAMESPACE=projectsveltos \
+        "$SCRIPTS_DIR/utils/wait_for_deployment.sh"
+else
+    warn "Namespace 'projectsveltos' does not exist in the adopted cluster -- skipping"
+fi
+
 ok "Adopted cluster '$ADOPTED_CLUSTER_NAME' is ready as '$ADOPTED_CLD_NAME'"
