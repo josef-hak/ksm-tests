@@ -102,8 +102,13 @@ wait_release() {
 
 # pod_uids NAMESPACE -- one uid per line, sorted. Unchanged uids are the
 # strongest evidence a service was left alone: a rollout replaces the pods.
+# Pods that already finished are left out: a chart's hook job (cert-manager's
+# startupapicheck) is reaped whenever its deleter gets round to it, which has
+# nothing to do with whether the upgrade touched the workload.
 pod_uids() {
-    kube_child get pods -n "$1" -o jsonpath='{range .items[*]}{.metadata.uid}{"\n"}{end}' \
+    kube_child get pods -n "$1" \
+        --field-selector=status.phase!=Succeeded,status.phase!=Failed \
+        -o jsonpath='{range .items[*]}{.metadata.uid}{"\n"}{end}' \
         2>/dev/null | sort
 }
 
